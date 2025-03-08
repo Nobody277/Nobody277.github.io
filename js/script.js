@@ -1,28 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Mermaid with custom settings
-    mermaid.initialize({
-        startOnLoad: false,  // We'll manually initialize it
-        theme: 'dark',
-        securityLevel: 'loose',
-        flowchart: {
-            useMaxWidth: true,
-            htmlLabels: true,
-            curve: 'linear',
-            diagramPadding: 8
-        },
-        themeVariables: {
-            primaryColor: '#3949ab',
-            primaryTextColor: '#fff',
-            primaryBorderColor: '#3949ab',
-            lineColor: '#ffffff',
-            secondaryColor: '#d32f2f',
-            tertiaryColor: '#2a2a2a'
-        },
-        classDiagram: {
-            useMaxWidth: true
-        }
-    });
-
     // DOM Elements
     const tabButtons = document.querySelectorAll('.tab-btn');
     const inputRadios = document.querySelectorAll('input[name="input-method"]');
@@ -33,7 +9,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const fileList = document.getElementById('file-list');
     const generateBtn = document.getElementById('generate-btn');
     const diagramOutput = document.getElementById('diagram-output');
-    const downloadSvgBtn = document.getElementById('download-svg-btn');
     const downloadPngBtn = document.getElementById('download-png-btn');
 
     // Current state
@@ -66,12 +41,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     generateBtn.addEventListener('click', generateDiagram);
     
-    if (downloadSvgBtn) {
-        downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
-    }
-    
     if (downloadPngBtn) {
-        downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
+        downloadPngBtn.addEventListener('click', downloadDiagram);
     }
 
     // File upload handler
@@ -129,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Functions
+    // Main function to generate diagrams
     function generateDiagram() {
         let javaCode = '';
         
@@ -159,117 +130,198 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // Preprocess: remove import statements so that only the relevant code is processed
-        javaCode = javaCode.replace(/import\s+.*;/g, '');
-
         try {
-            let mermaidCode;
+            diagramOutput.innerHTML = '';
             
             if (currentTab === 'class-diagram') {
-                mermaidCode = generateClassDiagram(javaCode);
+                generateCustomClassDiagram(javaCode);
             } else {
-                mermaidCode = generateFlowchart(javaCode);
+                generateCustomFlowchart(javaCode);
             }
-
-            diagramOutput.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
             
-            // Initialize Mermaid with error handling
-            try {
-                mermaid.init(undefined, document.querySelectorAll('.mermaid'));
-                
-                // Add syntax highlighting classes
-                applyCustomStyling();
-                
-                // Only enable download buttons if diagram was successfully generated
-                if (diagramOutput.querySelector('svg')) {
-                    if (downloadSvgBtn) downloadSvgBtn.disabled = false;
-                    if (downloadPngBtn) downloadPngBtn.disabled = false;
-                } else {
-                    throw new Error("SVG diagram was not created");
-                }
-            } catch (mermaidError) {
-                console.error("Mermaid error:", mermaidError);
-                handleError("Mermaid diagram generation failed", mermaidError);
-            }
+            // Enable download button
+            if (downloadPngBtn) downloadPngBtn.disabled = false;
+            
         } catch (error) {
             console.error("Generation error:", error);
             handleError("Error generating diagram", error);
         }
     }
 
-    function generateClassDiagram(javaCode) {
-        // Split multiple files by looking for class declarations
+    // Generate custom class diagram
+    function generateCustomClassDiagram(javaCode) {
+        // Create diagram container
+        const container = document.createElement('div');
+        container.className = 'diagram-container';
+        
+        // Extract file sections
         const files = getFileSections(javaCode);
         
-        // Create a more structured class diagram
-        let mermaidCode = 'classDiagram\n';
-        let processedClasses = [];
-        
-        // Process each file
         for (const file of files) {
             const fileContent = file.content;
+            const className = extractClassName(fileContent);
             
-            // Extract class name
-            const classNameMatch = fileContent.match(/class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?/);
-            if (!classNameMatch) continue;
+            if (!className) continue;
             
-            const className = classNameMatch[1];
-            const parentClass = classNameMatch[2] || null;
+            // Create class box
+            const classBox = document.createElement('div');
+            classBox.className = 'class-box';
             
-            // Skip if already processed
-            if (processedClasses.includes(className)) continue;
-            processedClasses.push(className);
+            // Add class header
+            const classHeader = document.createElement('div');
+            classHeader.className = 'class-header';
+            classHeader.textContent = file.name.replace('.java', '');
+            classBox.appendChild(classHeader);
             
-            // Add class to diagram
-            mermaidCode += `    class ${className} {\n`;
+            // Add variables section
+            const variablesSection = document.createElement('div');
+            variablesSection.className = 'class-section';
             
-            // Find and add variables section
+            const variablesTitle = document.createElement('div');
+            variablesTitle.className = 'section-title';
+            variablesTitle.textContent = 'Variables';
+            variablesSection.appendChild(variablesTitle);
+            
             const variables = extractVariables(fileContent);
+            
             if (variables.length > 0) {
-                mermaidCode += `        Variables\n`;
-                for (const variable of variables) {
-                    mermaidCode += `        ${variable.type} ${variable.name}\n`;
-                }
+                variables.forEach(variable => {
+                    const variableItem = document.createElement('div');
+                    variableItem.className = 'variable-item';
+                    
+                    // Add syntax highlighting
+                    variableItem.innerHTML = `
+                        <span class="type">${variable.type}</span> 
+                        <span class="name">${variable.name}</span>
+                    `;
+                    
+                    variablesSection.appendChild(variableItem);
+                });
             } else {
-                mermaidCode += `        No variables\n`;
+                const noVars = document.createElement('div');
+                noVars.className = 'variable-item';
+                noVars.textContent = 'No variables';
+                variablesSection.appendChild(noVars);
             }
             
-            // Find and add methods section
+            classBox.appendChild(variablesSection);
+            
+            // Add methods section
+            const methodsSection = document.createElement('div');
+            methodsSection.className = 'class-section';
+            
+            const methodsTitle = document.createElement('div');
+            methodsTitle.className = 'section-title';
+            methodsTitle.textContent = 'Methods';
+            methodsSection.appendChild(methodsTitle);
+            
             const methods = extractMethods(fileContent);
+            
             if (methods.length > 0) {
-                mermaidCode += `        Methods\n`;
-                for (const method of methods) {
-                    mermaidCode += `        ${method.accessModifier} ${method.returnType} ${method.name}(${method.params})\n`;
+                methods.forEach(method => {
+                    const methodItem = document.createElement('div');
+                    methodItem.className = 'method-item';
                     
-                    // Add conditional statements if present
-                    const conditionals = extractConditionals(method.body);
-                    for (const cond of conditionals) {
-                        mermaidCode += `        ${cond}\n`;
+                    // Add syntax highlighting for method
+                    methodItem.innerHTML = `
+                        <span class="keyword">${method.accessModifier}</span> 
+                        ${method.isStatic ? '<span class="keyword">static</span> ' : ''}
+                        <span class="type">${method.returnType}</span> 
+                        <span class="name">${method.name}</span>()
+                    `;
+                    
+                    // Add conditionals if any
+                    if (method.conditionals && method.conditionals.length > 0) {
+                        method.conditionals.forEach(cond => {
+                            const condItem = document.createElement('div');
+                            condItem.className = 'method-item';
+                            condItem.innerHTML = `&nbsp;&nbsp;<span class="keyword">${cond}</span>`;
+                            methodsSection.appendChild(condItem);
+                        });
+                    }
+                    
+                    methodsSection.appendChild(methodItem);
+                });
+            } else {
+                const noMethods = document.createElement('div');
+                noMethods.className = 'method-item';
+                noMethods.textContent = 'No methods';
+                methodsSection.appendChild(noMethods);
+            }
+            
+            classBox.appendChild(methodsSection);
+            container.appendChild(classBox);
+        }
+        
+        diagramOutput.appendChild(container);
+    }
+    
+    // Extract class name from Java code
+    function extractClassName(javaCode) {
+        const classRegex = /class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?/;
+        const match = javaCode.match(classRegex);
+        return match ? match[1] : null;
+    }
+    
+    // Extract variables from Java code
+    function extractVariables(javaCode) {
+        const variables = [];
+        const variableRegex = /(?:private|public|protected)?\s*(?:static)?\s*(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)(?:\s*=\s*[^;]+)?;/g;
+        
+        let match;
+        while ((match = variableRegex.exec(javaCode)) !== null) {
+            variables.push({
+                type: match[1],
+                name: match[2]
+            });
+        }
+        
+        return variables;
+    }
+    
+    // Extract methods from Java code
+    function extractMethods(javaCode) {
+        const methods = [];
+        // Match method declarations with basic modifiers
+        const methodRegex = /(public|private|protected)?\s*(static)?\s*(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)\s*\([^)]*\)\s*{/g;
+        
+        let match;
+        while ((match = methodRegex.exec(javaCode)) !== null) {
+            const accessModifier = match[1] || 'default';
+            const isStatic = match[2] ? true : false;
+            const returnType = match[3];
+            const name = match[4];
+            
+            // Find method body to extract conditionals
+            const methodBodyRegex = new RegExp(`${name}\\s*\\([^)]*\\)\\s*{([^}]*)}`, 's');
+            const bodyMatch = methodBodyRegex.exec(javaCode);
+            
+            let conditionals = [];
+            if (bodyMatch) {
+                const body = bodyMatch[1];
+                // Match if, else if, and else statements
+                const ifElseRegex = /(else\s+if|if|else)\s*(?:\(([^)]+)\))?/g;
+                
+                let condMatch;
+                while ((condMatch = ifElseRegex.exec(body)) !== null) {
+                    if (condMatch[2]) {
+                        conditionals.push(`${condMatch[1]}(${condMatch[2]})`);
+                    } else {
+                        conditionals.push(condMatch[1]);
                     }
                 }
             }
             
-            mermaidCode += `    }\n`;
-            
-            // Add inheritance if exists
-            if (parentClass) {
-                mermaidCode += `    ${className} --|> ${parentClass}\n`;
-            }
-            
-            // Add relationships with other classes
-            const relationships = findRelationships(fileContent, className, processedClasses);
-            for (const rel of relationships) {
-                mermaidCode += `    ${rel}\n`;
-            }
+            methods.push({
+                accessModifier,
+                isStatic,
+                returnType,
+                name,
+                conditionals
+            });
         }
         
-        // Add custom styling directives
-        mermaidCode += `    
-    classDef default fill:#2d2d2d,stroke:#5a7cb6,color:white
-    classDef header fill:#5a7cb6,stroke:#5a7cb6,color:white
-    `;
-        
-        return mermaidCode;
+        return methods;
     }
     
     // Helper function to split code into file sections
@@ -281,370 +333,329 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Otherwise try to identify individual classes in the pasted code
         const fileSections = [];
-        const classMatches = javaCode.matchAll(/(?:public|private|protected)?\s*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?\s*{/g);
+        const classRegex = /class\s+(\w+)/g;
+        let classMatch;
         
-        let lastIndex = 0;
-        let fileName = "Unknown.java";
+        // Extract class names
+        const classNames = [];
+        while ((classMatch = classRegex.exec(javaCode)) !== null) {
+            classNames.push(classMatch[1]);
+        }
         
-        for (const match of classMatches) {
-            const className = match[1];
-            const startIndex = match.index;
+        if (classNames.length > 1) {
+            // Multiple classes in one file - try to split them
+            const classBoundaryRegex = /public\s+class\s+(\w+)|class\s+(\w+)/g;
+            let lastIndex = 0;
+            let boundaryMatch;
             
-            // If this isn't the first class, add the previous one
-            if (lastIndex > 0) {
-                const content = javaCode.substring(lastIndex, startIndex);
+            while ((boundaryMatch = classBoundaryRegex.exec(javaCode)) !== null) {
+                const className = boundaryMatch[1] || boundaryMatch[2];
+                const startIndex = boundaryMatch.index;
+                
+                // If this isn't the first class, add the previous one
+                if (lastIndex > 0) {
+                    const content = javaCode.substring(lastIndex, startIndex);
+                    const previousClass = extractClassName(content);
+                    fileSections.push({
+                        name: `${previousClass}.java`,
+                        content: content
+                    });
+                }
+                
+                lastIndex = startIndex;
+            }
+            
+            // Add the last class
+            if (lastIndex < javaCode.length) {
+                const content = javaCode.substring(lastIndex);
+                const className = extractClassName(content);
                 fileSections.push({
-                    name: fileName,
+                    name: `${className}.java`,
                     content: content
                 });
             }
-            
-            lastIndex = startIndex;
-            fileName = `${className}.java`;
-        }
-        
-        // Add the last section
-        if (lastIndex < javaCode.length) {
+        } else {
+            // Just one class
             fileSections.push({
-                name: fileName,
-                content: javaCode.substring(lastIndex)
-            });
-        }
-        
-        // If no sections were found, treat it as a single file
-        if (fileSections.length === 0) {
-            fileSections.push({
-                name: "Unknown.java",
+                name: `${classNames[0] || 'Unknown'}.java`,
                 content: javaCode
             });
         }
         
         return fileSections;
     }
-    
-    // Extract variables from class code
-    function extractVariables(classCode) {
-        const variables = [];
-        const variableRegex = /(private|public|protected)\s+(?:final\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)(?:\s*=\s*[^;]+)?;/g;
-        
-        let match;
-        while ((match = variableRegex.exec(classCode)) !== null) {
-            const accessModifier = match[1];
-            const type = match[2];
-            const name = match[3];
-            
-            variables.push({
-                accessModifier: accessModifier,
-                type: type,
-                name: name
-            });
-        }
-        
-        return variables;
-    }
-    
-    // Extract methods from class code
-    function extractMethods(classCode) {
-        const methods = [];
-        // Match method declarations, including their body
-        const methodRegex = /(private|public|protected)\s+(?:static\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)\s*\(([^)]*)\)\s*{([^}]*(?:{[^}]*}[^}]*)*)}/g;
-        
-        let match;
-        while ((match = methodRegex.exec(classCode)) !== null) {
-            const accessModifier = match[1];
-            const returnType = match[2];
-            const name = match[3];
-            const params = match[4];
-            const body = match[5] || '';
-            
-            methods.push({
-                accessModifier: accessModifier,
-                returnType: returnType,
-                name: name,
-                params: params,
-                body: body
-            });
-        }
-        
-        return methods;
-    }
-    
-    // Extract conditional statements like if/else
-    function extractConditionals(methodBody) {
-        const conditionals = [];
-        
-        // Match if and else if statements
-        const ifRegex = /(?:else\s+)?if\s*\(([^)]+)\)/g;
-        
-        let match;
-        while ((match = ifRegex.exec(methodBody)) !== null) {
-            const condition = match[1].trim();
-            conditionals.push(`${match[0].includes('else') ? 'else if' : 'if'}(${condition})`);
-        }
-        
-        // Match standalone else statements
-        const elseRegex = /else\s*{/g;
-        while ((match = elseRegex.exec(methodBody)) !== null) {
-            conditionals.push('else');
-        }
-        
-        return conditionals;
-    }
-    
-    // Find relationships between classes
-    function findRelationships(classCode, className, otherClasses) {
-        const relationships = [];
-        
-        // Look for instance declarations of other classes
-        for (const otherClass of otherClasses) {
-            if (otherClass === className) continue;
-            
-            const instanceRegex = new RegExp(`${otherClass}\\s+\\w+\\s*=`, 'g');
-            if (instanceRegex.test(classCode)) {
-                relationships.push(`${className} --> ${otherClass} : uses`);
-            }
-        }
-        
-        return relationships;
-    }
 
-    function generateFlowchart(javaCode) {
-        // Find class and method declarations
-        const classRegex = /class\s+(\w+)/g;
-        const methodRegex = /(?:public|private|protected)(?:\s+static)?\s+(\w+)\s+(\w+)\s*\(([^)]*)\)/g;
-        let flowchart = 'flowchart TD\n';
+    // Generate custom flowchart
+    function generateCustomFlowchart(javaCode) {
+        // Create flowchart container
+        const container = document.createElement('div');
+        container.className = 'flowchart-container';
         
-        // Add class declaration
-        let className = "Unknown";
-        let classMatch = classRegex.exec(javaCode);
-        if (classMatch) {
-            className = classMatch[1];
-            flowchart += `    class[public class ${className}]\n`;
-            flowchart += `    class:::classStyle\n`;
+        // Extract class and method
+        const className = extractClassName(javaCode);
+        
+        if (!className) {
+            handleError("Error", { message: "No class found in the code" });
+            return;
         }
         
-        // Find main method
-        methodRegex.lastIndex = 0;
-        let methodMatch;
-        while ((methodMatch = methodRegex.exec(javaCode)) !== null) {
-            const returnType = methodMatch[1];
-            const methodName = methodMatch[2];
-            const params = methodMatch[3];
+        // Add class node
+        const classNode = document.createElement('div');
+        classNode.className = 'flowchart-node flowchart-class';
+        classNode.textContent = `public class ${className}`;
+        container.appendChild(classNode);
+        
+        // Add connector
+        const connector1 = document.createElement('div');
+        connector1.className = 'flowchart-connector';
+        container.appendChild(connector1);
+        
+        // Extract main method
+        const mainMethodRegex = /public\s+static\s+void\s+main\s*\(\s*String\s*\[\]\s*\w+\s*\)\s*{([^}]*)}/s;
+        const mainMatch = javaCode.match(mainMethodRegex);
+        
+        if (mainMatch) {
+            // Add main method signature
+            const mainNode = document.createElement('div');
+            mainNode.className = 'flowchart-node flowchart-process';
+            mainNode.textContent = 'public static void main(String';
+            container.appendChild(mainNode);
             
-            if (methodName === "main") {
-                // Fixed: Add main method node with complete label
-                flowchart += `    class --> mainSig[public static void main(String[] args)]\n`;
-                flowchart += `    mainSig:::codeStyle\n`;
+            // Add connector
+            const connector2 = document.createElement('div');
+            connector2.className = 'flowchart-connector';
+            container.appendChild(connector2);
+            
+            // Add args
+            const argsNode = document.createElement('div');
+            argsNode.className = 'flowchart-node flowchart-process';
+            argsNode.textContent = 'args)';
+            container.appendChild(argsNode);
+            
+            // Parse for loops
+            const mainBody = mainMatch[1];
+            const forLoopRegex = /for\s*\(([^;]+);([^;]+);([^)]+)\)/g;
+            let forMatch;
+            
+            if ((forMatch = forLoopRegex.exec(mainBody)) !== null) {
+                const initExpr = forMatch[1].trim();
+                const condExpr = forMatch[2].trim();
+                const incrExpr = forMatch[3].trim();
                 
-                // Extract method body
-                const methodBodyRegex = new RegExp(`${methodName}\\s*\\([^)]*\\)\\s*{([^}]*(?:{[^}]*})*[^}]*)}`, 'gs');
-                const bodyMatch = methodBodyRegex.exec(javaCode);
+                // Add connector
+                const connector3 = document.createElement('div');
+                connector3.className = 'flowchart-connector';
+                container.appendChild(connector3);
                 
-                if (bodyMatch) {
-                    const body = bodyMatch[1];
+                // Add initialization
+                const initNode = document.createElement('div');
+                initNode.className = 'flowchart-node flowchart-process';
+                initNode.textContent = initExpr;
+                container.appendChild(initNode);
+                
+                // Add connector
+                const connector4 = document.createElement('div');
+                connector4.className = 'flowchart-connector';
+                container.appendChild(connector4);
+                
+                // Add condition diamond
+                const condContainer = document.createElement('div');
+                condContainer.className = 'flowchart-node flowchart-condition';
+                
+                const condText = document.createElement('div');
+                condText.className = 'flowchart-condition-text';
+                condText.textContent = condExpr;
+                condContainer.appendChild(condText);
+                
+                container.appendChild(condContainer);
+                
+                // Check for nested loop
+                const nestedForRegex = /for\s*\(([^;]+);([^;]+);([^)]+)\)/g;
+                let nestedMatch;
+                
+                if (mainBody.match(/for\s*\([^)]+\)[^{]*{[^}]*for/s)) {
+                    // Reset the regex
+                    nestedForRegex.lastIndex = forMatch.index + forMatch[0].length;
                     
-                    // Parse for loops specifically for nested loops like in the example
-                    const forLoopRegex = /for\s*\(([^;]+);([^;]+);([^)]+)\)(?:\s*{)?([^}]*(?:{[^}]*})*[^}]*)?(?:})?/gs;
-                    let outerLoopMatch = forLoopRegex.exec(body);
-                    
-                    if (outerLoopMatch) {
-                        const outerInit = outerLoopMatch[1].trim();
-                        const outerCond = outerLoopMatch[2].trim();
-                        const outerIncr = outerLoopMatch[3].trim();
-                        const outerBody = outerLoopMatch[4] || '';
+                    if ((nestedMatch = nestedForRegex.exec(mainBody)) !== null) {
+                        const nestedInit = nestedMatch[1].trim();
+                        const nestedCond = nestedMatch[2].trim();
+                        const nestedIncr = nestedMatch[3].trim();
                         
-                        // Outer loop initialization
-                        flowchart += `    mainSig --> outerInit[${outerInit}]\n`;
-                        flowchart += `    outerInit:::codeStyle\n`;
+                        // Create branches
+                        const branchDiv = document.createElement('div');
+                        branchDiv.className = 'flowchart-branch';
                         
-                        // Outer loop condition
-                        flowchart += `    outerInit --> outerCond{${outerCond}}\n`;
-                        flowchart += `    outerCond:::conditionStyle\n`;
+                        // True branch (nested loop)
+                        const trueConnector = document.createElement('div');
+                        trueConnector.className = 'flowchart-connector';
                         
-                        // Find nested loop
-                        forLoopRegex.lastIndex = 0; // Reset regex to search in the outer loop body
-                        let innerLoopMatch = forLoopRegex.exec(outerBody);
+                        // True branch label
+                        const trueLabelDiv = document.createElement('div');
+                        trueLabelDiv.className = 'flowchart-branch-label flowchart-branch-true';
+                        trueLabelDiv.textContent = 'True';
+                        branchDiv.appendChild(trueLabelDiv);
                         
-                        if (innerLoopMatch) {
-                            const innerInit = innerLoopMatch[1].trim();
-                            const innerCond = innerLoopMatch[2].trim();
-                            const innerIncr = innerLoopMatch[3].trim();
-                            const innerBody = innerLoopMatch[4] || '';
+                        const nestedInitNode = document.createElement('div');
+                        nestedInitNode.className = 'flowchart-node flowchart-process';
+                        nestedInitNode.textContent = nestedInit;
+                        
+                        const nestedInitContainer = document.createElement('div');
+                        nestedInitContainer.appendChild(trueConnector);
+                        nestedInitContainer.appendChild(nestedInitNode);
+                        branchDiv.appendChild(nestedInitContainer);
+                        
+                        // Connector to outer loop increment
+                        const falseConnector = document.createElement('div');
+                        falseConnector.className = 'flowchart-connector';
+                        
+                        // False branch label
+                        const falseLabelDiv = document.createElement('div');
+                        falseLabelDiv.className = 'flowchart-branch-label flowchart-branch-false';
+                        falseLabelDiv.textContent = 'False';
+                        branchDiv.appendChild(falseLabelDiv);
+                        
+                        const incrNode = document.createElement('div');
+                        incrNode.className = 'flowchart-node flowchart-process';
+                        incrNode.textContent = incrExpr;
+                        
+                        const incrContainer = document.createElement('div');
+                        incrContainer.appendChild(falseConnector);
+                        incrContainer.appendChild(incrNode);
+                        branchDiv.appendChild(incrContainer);
+                        
+                        // Add horizontal connector
+                        const horizontalConnector = document.createElement('div');
+                        horizontalConnector.className = 'flowchart-connector-horizontal';
+                        branchDiv.appendChild(horizontalConnector);
+                        
+                        container.appendChild(branchDiv);
+                        
+                        // Add connector from nested init to nested cond
+                        const nestedConnector1 = document.createElement('div');
+                        nestedConnector1.className = 'flowchart-connector';
+                        nestedInitContainer.appendChild(nestedConnector1);
+                        
+                        // Add nested condition
+                        const nestedCondContainer = document.createElement('div');
+                        nestedCondContainer.className = 'flowchart-node flowchart-condition';
+                        
+                        const nestedCondText = document.createElement('div');
+                        nestedCondText.className = 'flowchart-condition-text';
+                        nestedCondText.textContent = nestedCond;
+                        nestedCondContainer.appendChild(nestedCondText);
+                        
+                        nestedInitContainer.appendChild(nestedCondContainer);
+                        
+                        // Extract print statement if any
+                        const printRegex = /System\.out\.println\s*\(([^)]+)\)/;
+                        const printMatch = mainBody.match(printRegex);
+                        
+                        if (printMatch) {
+                            // Create branches for nested condition
+                            const nestedBranchDiv = document.createElement('div');
+                            nestedBranchDiv.className = 'flowchart-branch';
                             
-                            // Inner loop initialization (when outer loop condition is true)
-                            flowchart += `    outerCond -->|True| innerInit[${innerInit}]\n`;
-                            flowchart += `    innerInit:::codeStyle\n`;
+                            // True branch - print statement
+                            const printConnector = document.createElement('div');
+                            printConnector.className = 'flowchart-connector';
                             
-                            // Inner loop condition
-                            flowchart += `    innerInit --> innerCond{${innerCond}}\n`;
-                            flowchart += `    innerCond:::conditionStyle\n`;
+                            // True branch label
+                            const printLabelDiv = document.createElement('div');
+                            printLabelDiv.className = 'flowchart-branch-label flowchart-branch-true';
+                            printLabelDiv.textContent = 'True';
+                            nestedBranchDiv.appendChild(printLabelDiv);
                             
-                            // Find print statements in inner loop
-                            const printRegex = /System\.out\.println\s*\((.*?)\)/g;
-                            let printMatch = printRegex.exec(innerBody);
+                            const printNode = document.createElement('div');
+                            printNode.className = 'flowchart-node flowchart-process';
+                            printNode.textContent = `System.out.println(${printMatch[1]})`;
                             
-                            if (printMatch) {
-                                // Print statement (when inner loop condition is true)
-                                flowchart += `    innerCond -->|True| print[System.out.println(${printMatch[1]})]\n`;
-                                flowchart += `    print:::codeStyle\n`;
-                                
-                                // Inner loop increment
-                                flowchart += `    print --> innerIncr[${innerIncr}]\n`;
-                                flowchart += `    innerIncr:::codeStyle\n`;
-                                
-                                // Back to inner condition
-                                flowchart += `    innerIncr --> innerCond\n`;
-                            } else {
-                                // Generic inner loop body
-                                flowchart += `    innerCond -->|True| innerBody[Inner Loop Body]\n`;
-                                flowchart += `    innerBody:::codeStyle\n`;
-                                flowchart += `    innerBody --> innerIncr[${innerIncr}]\n`;
-                                flowchart += `    innerIncr:::codeStyle\n`;
-                                flowchart += `    innerIncr --> innerCond\n`;
-                            }
+                            const printContainer = document.createElement('div');
+                            printContainer.appendChild(printConnector);
+                            printContainer.appendChild(printNode);
+                            nestedBranchDiv.appendChild(printContainer);
                             
-                            // Exit inner loop to outer loop increment
-                            flowchart += `    innerCond -->|False| outerIncr[${outerIncr}]\n`;
-                            flowchart += `    outerIncr:::codeStyle\n`;
+                            // False branch - back to outer loop
+                            const exitConnector = document.createElement('div');
+                            exitConnector.className = 'flowchart-connector';
                             
-                            // Back to outer condition
-                            flowchart += `    outerIncr --> outerCond\n`;
-                        } else {
-                            // Simple outer loop without nesting
-                            flowchart += `    outerCond -->|True| outerBody[Loop Body]\n`;
-                            flowchart += `    outerBody:::codeStyle\n`;
-                            flowchart += `    outerBody --> outerIncr[${outerIncr}]\n`;
-                            flowchart += `    outerIncr:::codeStyle\n`;
-                            flowchart += `    outerIncr --> outerCond\n`;
+                            // False branch label
+                            const exitLabelDiv = document.createElement('div');
+                            exitLabelDiv.className = 'flowchart-branch-label flowchart-branch-false';
+                            exitLabelDiv.textContent = 'False';
+                            nestedBranchDiv.appendChild(exitLabelDiv);
+                            
+                            const exitNode = document.createElement('div');
+                            exitNode.className = 'flowchart-node flowchart-process';
+                            exitNode.textContent = nestedIncr;
+                            
+                            const exitContainer = document.createElement('div');
+                            exitContainer.appendChild(exitConnector);
+                            exitContainer.appendChild(exitNode);
+                            nestedBranchDiv.appendChild(exitContainer);
+                            
+                            nestedInitContainer.appendChild(nestedBranchDiv);
                         }
-                        
-                        // Exit outer loop
-                        flowchart += `    outerCond -->|False| exit[Exit Loop]\n`;
-                        flowchart += `    exit:::codeStyle\n`;
                     }
+                } else {
+                    // Simple for loop without nesting
+                    // Create branches
+                    const branchDiv = document.createElement('div');
+                    branchDiv.className = 'flowchart-branch';
+                    
+                    // True branch
+                    const trueConnector = document.createElement('div');
+                    trueConnector.className = 'flowchart-connector';
+                    
+                    const loopBodyNode = document.createElement('div');
+                    loopBodyNode.className = 'flowchart-node flowchart-process';
+                    loopBodyNode.textContent = 'Loop Body';
+                    
+                    const trueContainer = document.createElement('div');
+                    trueContainer.appendChild(trueConnector);
+                    trueContainer.appendChild(loopBodyNode);
+                    branchDiv.appendChild(trueContainer);
+                    
+                    // False branch
+                    const falseConnector = document.createElement('div');
+                    falseConnector.className = 'flowchart-connector';
+                    
+                    const exitNode = document.createElement('div');
+                    exitNode.className = 'flowchart-node flowchart-process';
+                    exitNode.textContent = 'Exit Loop';
+                    
+                    const falseContainer = document.createElement('div');
+                    falseContainer.appendChild(falseConnector);
+                    falseContainer.appendChild(exitNode);
+                    branchDiv.appendChild(falseContainer);
+                    
+                    container.appendChild(branchDiv);
                 }
             }
         }
         
-        // Add style definitions to match the image
-        flowchart += `\n    classDef classStyle fill:#d32d2d,stroke:#5a7cb6,color:white\n`;
-        flowchart += `    classDef conditionStyle fill:#d32f2f,stroke:#d32f2f,color:white,shape:diamond\n`;
-        flowchart += `    classDef codeStyle fill:#3949ab,stroke:#3949ab,color:white\n`;
-        
-        return flowchart;
+        diagramOutput.appendChild(container);
     }
 
-    // Add custom styling to the generated diagram
-    function applyCustomStyling() {
-        if (!diagramOutput.querySelector('svg')) return;
-        
-        // Apply custom styling to class diagrams
-        if (currentTab === 'class-diagram') {
-            // Apply styling to class diagram elements
-            const classTitles = diagramOutput.querySelectorAll('.classTitle');
-            classTitles.forEach(title => {
-                title.parentElement.classList.add('title-section');
-            });
-            
-            // Style variable and method text for syntax highlighting
-            const classSections = diagramOutput.querySelectorAll('.section');
-            classSections.forEach(section => {
-                const text = section.querySelector('text');
-                if (text) {
-                    const content = text.textContent;
-                    
-                    // Apply syntax highlighting based on content
-                    if (content.includes('String') || content.includes('int') || content.includes('boolean')) {
-                        const formattedContent = content.replace(
-                            /(String|int|char|boolean|double|float|void|static)/g, 
-                            '<tspan class="type">$1</tspan>'
-                        );
-                        text.innerHTML = formattedContent;
-                    }
-                    
-                    if (content.includes('public') || content.includes('private') || content.includes('protected')) {
-                        const formattedContent = text.innerHTML.replace(
-                            /(public|private|protected|if|else)/g, 
-                            '<tspan class="keyword">$1</tspan>'
-                        );
-                        text.innerHTML = formattedContent;
-                    }
-                }
-            });
-        }
-    }
-
-    function downloadDiagram(format) {
-        const svgElement = diagramOutput.querySelector('svg');
-        if (!svgElement) {
+    function downloadDiagram() {
+        if (!diagramOutput.firstChild) {
             alert('No diagram available to download. Please generate a diagram first.');
             return;
         }
         
-        if (format === 'svg') {
-            // SVG Download
-            const svgData = new XMLSerializer().serializeToString(svgElement);
-            const blob = new Blob([svgData], { type: 'image/svg+xml' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${currentTab}-diagram.svg`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        } else if (format === 'png') {
-            // PNG Download
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            
-            // Set canvas dimensions
-            const svgWidth = svgElement.viewBox.baseVal.width || svgElement.width.baseVal.value;
-            const svgHeight = svgElement.viewBox.baseVal.height || svgElement.height.baseVal.value;
-            const scale = 2; // Scale for better quality
-            
-            canvas.width = svgWidth * scale;
-            canvas.height = svgHeight * scale;
-            context.scale(scale, scale);
-            
-            // Create image from SVG
-            const img = new Image();
-            const svgData = new XMLSerializer().serializeToString(svgElement);
-            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-            const url = URL.createObjectURL(svgBlob);
-            
-            img.onload = function() {
-                // Draw image to canvas
-                context.fillStyle = '#1e1e1e'; // Match background color
-                context.fillRect(0, 0, canvas.width, canvas.height);
-                context.drawImage(img, 0, 0, svgWidth, svgHeight);
-                
-                // Convert canvas to PNG and download
-                try {
-                    canvas.toBlob(function(blob) {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${currentTab}-diagram.png`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }, 'image/png');
-                } catch (e) {
-                    console.error('Error creating PNG:', e);
-                    alert('Failed to create PNG. Try using SVG format instead.');
-                }
-            };
-            
-            img.onerror = function() {
-                console.error('Error loading SVG');
-                alert('Failed to create PNG. Try using SVG format instead.');
-            };
-            
-            img.src = url;
-        }
+        html2canvas(diagramOutput, {
+            backgroundColor: '#1e1e1e',
+            scale: 2,
+            logging: false
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `${currentTab}-diagram.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }).catch(error => {
+            console.error('Error creating PNG:', error);
+            alert('Failed to create PNG. Please try again or use a screenshot tool.');
+        });
     }
 
     // Error handling function
@@ -653,7 +664,6 @@ document.addEventListener('DOMContentLoaded', function() {
         diagramOutput.innerHTML = `<div class="error-message">${message}: ${error.message}</div>`;
         
         // Safely disable buttons
-        if (downloadSvgBtn) downloadSvgBtn.disabled = true;
         if (downloadPngBtn) downloadPngBtn.disabled = true;
     }
 
@@ -691,8 +701,12 @@ class Student {
     }
 }`;
         
+        // Add html2canvas for PNG export
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        document.head.appendChild(script);
+        
         // Make sure download buttons are disabled initially
-        if (downloadSvgBtn) downloadSvgBtn.disabled = true;
         if (downloadPngBtn) downloadPngBtn.disabled = true;
     }
 
