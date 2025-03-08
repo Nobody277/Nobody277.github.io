@@ -6,7 +6,8 @@ document.addEventListener('DOMContentLoaded', function() {
         securityLevel: 'loose',
         flowchart: {
             useMaxWidth: true,
-            htmlLabels: true
+            htmlLabels: true,
+            curve: 'basis'
         }
     });
 
@@ -19,7 +20,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const fileUpload = document.getElementById('file-upload');
     const generateBtn = document.getElementById('generate-btn');
     const diagramOutput = document.getElementById('diagram-output');
-    const downloadBtn = document.getElementById('download-btn');
+    const downloadSvgBtn = document.getElementById('download-svg-btn');
+    const downloadPngBtn = document.getElementById('download-png-btn');
 
     // Current state
     let currentTab = 'class-diagram';
@@ -57,7 +59,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     generateBtn.addEventListener('click', generateDiagram);
-    downloadBtn.addEventListener('click', downloadSVG);
+    downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
+    downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
 
     // Functions
     function generateDiagram() {
@@ -79,10 +82,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
             diagramOutput.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
             mermaid.init(undefined, document.querySelectorAll('.mermaid'));
-            downloadBtn.disabled = false;
+            downloadSvgBtn.disabled = false;
+            downloadPngBtn.disabled = false;
         } catch (error) {
             diagramOutput.innerHTML = `<div class="error">Error generating diagram: ${error.message}</div>`;
-            downloadBtn.disabled = true;
+            downloadSvgBtn.disabled = true;
+            downloadPngBtn.disabled = true;
         }
     }
 
@@ -158,9 +163,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function generateFlowchart(javaCode) {
         // Find method bodies to analyze
-        const methodBodyRegex = /(\w+)\s+(\w+)\s*\(([^)]*)\)\s*{([^{}]*(?:{[^{}]*}[^{}]*)*?)}/g;
+        const methodBodyRegex = /(?:public|private|protected)(?:\s+static)?\s+(\w+)\s+(\w+)\s*\(([^)]*)\)\s*{([^}]*(?:{[^}]*})*[^}]*)}/gs;
         let methodMatch;
         let mermaidCode = 'flowchart TD\n';
+        let idCounter = 1;
         
         while ((methodMatch = methodBodyRegex.exec(javaCode)) !== null) {
             const returnType = methodMatch[1];
@@ -169,54 +175,160 @@ document.addEventListener('DOMContentLoaded', function() {
             const body = methodMatch[4];
             
             // Add method start
-            mermaidCode += `    start_${methodName}[Start ${methodName}] --> process_${methodName}_1\n`;
+            mermaidCode += `    start_${methodName}[Start ${methodName}] --> process_${methodName}_1[Method ${methodName}]\n`;
+            let lastNodeId = `process_${methodName}_1`;
             
-            // Process the method body for basic flow elements
-            let statementCount = 1;
-            
-            // Handle if statements
-            const ifRegex = /if\s*\(([^)]+)\)/g;
-            let ifMatch;
-            while ((ifMatch = ifRegex.exec(body)) !== null) {
-                const condition = ifMatch[1].replace(/&&/g, 'AND').replace(/\|\|/g, 'OR');
-                mermaidCode += `    process_${methodName}_${statementCount}[${methodName} Process] --> condition_${methodName}_${statementCount}{${condition}?}\n`;
-                mermaidCode += `    condition_${methodName}_${statementCount} -->|Yes| process_${methodName}_${statementCount + 1}[If Block]\n`;
-                mermaidCode += `    condition_${methodName}_${statementCount} -->|No| process_${methodName}_${statementCount + 2}[Continue]\n`;
-                statementCount += 3;
+            // Parse the method body - improved to handle nested structures
+            const parsedNodes = parseMethodBody(body, methodName, idCounter);
+            if (parsedNodes.flowchart && parsedNodes.flowchart.length > 0) {
+                mermaidCode += parsedNodes.flowchart.join('\n') + '\n';
+                lastNodeId = parsedNodes.lastNodeId;
             }
             
-            // Handle loops (for, while)
-            const loopRegex = /(for|while)\s*\(([^)]+)\)/g;
-            let loopMatch;
-            while ((loopMatch = loopRegex.exec(body)) !== null) {
-                const loopType = loopMatch[1];
-                const loopCondition = loopMatch[2].replace(/&&/g, 'AND').replace(/\|\|/g, 'OR');
-                mermaidCode += `    process_${methodName}_${statementCount}[${methodName} Process] --> loop_${methodName}_${statementCount}{${loopType}: ${loopCondition}}\n`;
-                mermaidCode += `    loop_${methodName}_${statementCount} -->|Body| process_${methodName}_${statementCount + 1}[Loop Body]\n`;
-                mermaidCode += `    process_${methodName}_${statementCount + 1} --> loop_${methodName}_${statementCount}\n`;
-                mermaidCode += `    loop_${methodName}_${statementCount} -->|Exit| process_${methodName}_${statementCount + 2}[Continue]\n`;
-                statementCount += 3;
-            }
+            // Add method end if not already added
+            mermaidCode += `    ${lastNodeId} --> end_${methodName}[End ${methodName}]\n`;
             
-            // Handle method return
-            const returnRegex = /return\s+([^;]+);/g;
-            let returnMatch;
-            while ((returnMatch = returnRegex.exec(body)) !== null) {
-                const returnValue = returnMatch[1];
-                mermaidCode += `    process_${methodName}_${statementCount}[${methodName} Process] --> return_${methodName}[Return ${returnValue}]\n`;
-                statementCount += 1;
-            }
-            
-            // Add method end
-            mermaidCode += `    process_${methodName}_${statementCount} --> end_${methodName}[End ${methodName}]\n`;
+            idCounter = parsedNodes.idCounter;
         }
         
         return mermaidCode;
     }
+    
+    function parseMethodBody(body, methodName, startIdCounter) {
+        let idCounter = startIdCounter;
+        const flowchartLines = [];
+        let lastNodeId = `process_${methodName}_1`;
+        
+        // Handle System.out.println statements
+        const printRegex = /System\.out\.println\(([^)]+)\)/g;
+        let printMatch;
+        while ((printMatch = printRegex.exec(body)) !== null) {
+            const printContent = printMatch[1].replace(/"/g, "'");
+            const nodeId = `print_${methodName}_${idCounter}`;
+            flowchartLines.push(`    ${lastNodeId} --> ${nodeId}[Print: ${printContent}]`);
+            lastNodeId = nodeId;
+            idCounter++;
+        }
+        
+        // Handle for loops (including nested loops)
+        const forLoopRegex = /for\s*\(([^;]+);([^;]+);([^)]+)\)\s*{([^}]*(?:{[^}]*})*[^}]*)}/gs;
+        let forMatch;
+        let loopDepth = 0;
+        
+        while ((forMatch = forLoopRegex.exec(body)) !== null) {
+            loopDepth++;
+            const initialization = forMatch[1].trim();
+            const condition = forMatch[2].trim();
+            const increment = forMatch[3].trim();
+            const loopBody = forMatch[4];
+            
+            // Create loop start node
+            const loopStartId = `loop_start_${methodName}_${idCounter}`;
+            flowchartLines.push(`    ${lastNodeId} --> ${loopStartId}[Init: ${initialization}]`);
+            idCounter++;
+            
+            // Create condition node
+            const conditionId = `loop_cond_${methodName}_${idCounter}`;
+            flowchartLines.push(`    ${loopStartId} --> ${conditionId}{${condition}?}`);
+            idCounter++;
+            
+            // Create loop body
+            const loopBodyId = `loop_body_${methodName}_${idCounter}`;
+            flowchartLines.push(`    ${conditionId} -->|True| ${loopBodyId}[Loop Body]`);
+            idCounter++;
+            
+            // Parse nested loop body
+            const nestedResult = parseMethodBody(loopBody, `${methodName}_L${loopDepth}`, idCounter);
+            if (nestedResult.flowchart && nestedResult.flowchart.length > 0) {
+                flowchartLines.push(...nestedResult.flowchart);
+                idCounter = nestedResult.idCounter;
+            }
+            
+            // Create increment node
+            const incrementId = `loop_incr_${methodName}_${idCounter}`;
+            flowchartLines.push(`    ${nestedResult.lastNodeId || loopBodyId} --> ${incrementId}[${increment}]`);
+            idCounter++;
+            
+            // Loop back to condition
+            flowchartLines.push(`    ${incrementId} --> ${conditionId}`);
+            
+            // Exit loop
+            const loopExitId = `loop_exit_${methodName}_${idCounter}`;
+            flowchartLines.push(`    ${conditionId} -->|False| ${loopExitId}[Continue after loop]`);
+            lastNodeId = loopExitId;
+            idCounter++;
+        }
+        
+        // Handle if statements
+        const ifRegex = /if\s*\(([^)]+)\)\s*{([^}]*)}(?:\s*else\s*{([^}]*)})?/gs;
+        let ifMatch;
+        
+        while ((ifMatch = ifRegex.exec(body)) !== null) {
+            const condition = ifMatch[1].replace(/&&/g, 'AND').replace(/\|\|/g, 'OR');
+            const ifBlock = ifMatch[2];
+            const elseBlock = ifMatch[3];
+            
+            // Create condition node
+            const conditionId = `if_cond_${methodName}_${idCounter}`;
+            flowchartLines.push(`    ${lastNodeId} --> ${conditionId}{${condition}?}`);
+            idCounter++;
+            
+            // Create if block
+            const ifBlockId = `if_block_${methodName}_${idCounter}`;
+            flowchartLines.push(`    ${conditionId} -->|True| ${ifBlockId}[If Block]`);
+            idCounter++;
+            
+            // Parse if block body
+            const ifBlockResult = parseMethodBody(ifBlock, `${methodName}_IF`, idCounter);
+            if (ifBlockResult.flowchart && ifBlockResult.flowchart.length > 0) {
+                flowchartLines.push(...ifBlockResult.flowchart);
+                idCounter = ifBlockResult.idCounter;
+            }
+            
+            let ifEndNodeId = ifBlockResult.lastNodeId || ifBlockId;
+            
+            if (elseBlock) {
+                // Create else block
+                const elseBlockId = `else_block_${methodName}_${idCounter}`;
+                flowchartLines.push(`    ${conditionId} -->|False| ${elseBlockId}[Else Block]`);
+                idCounter++;
+                
+                // Parse else block body
+                const elseBlockResult = parseMethodBody(elseBlock, `${methodName}_ELSE`, idCounter);
+                if (elseBlockResult.flowchart && elseBlockResult.flowchart.length > 0) {
+                    flowchartLines.push(...elseBlockResult.flowchart);
+                    idCounter = elseBlockResult.idCounter;
+                }
+                
+                // Join paths
+                const joinId = `join_${methodName}_${idCounter}`;
+                flowchartLines.push(`    ${ifEndNodeId} --> ${joinId}[Join]`);
+                flowchartLines.push(`    ${elseBlockResult.lastNodeId || elseBlockId} --> ${joinId}`);
+                lastNodeId = joinId;
+                idCounter++;
+            } else {
+                // If there's no else block, create a direct path
+                const afterIfId = `after_if_${methodName}_${idCounter}`;
+                flowchartLines.push(`    ${conditionId} -->|False| ${afterIfId}[Skip If]`);
+                flowchartLines.push(`    ${ifEndNodeId} --> ${afterIfId}`);
+                lastNodeId = afterIfId;
+                idCounter++;
+            }
+        }
+        
+        return {
+            flowchart: flowchartLines,
+            lastNodeId,
+            idCounter
+        };
+    }
 
-    function downloadSVG() {
+    function downloadDiagram(format) {
         const svgElement = diagramOutput.querySelector('svg');
-        if (svgElement) {
+        if (!svgElement) return;
+        
+        if (format === 'svg') {
+            // SVG Download
             const svgData = new XMLSerializer().serializeToString(svgElement);
             const blob = new Blob([svgData], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(blob);
@@ -228,43 +340,68 @@ document.addEventListener('DOMContentLoaded', function() {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        } else if (format === 'png') {
+            // PNG Download
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            // Set canvas dimensions
+            const svgWidth = svgElement.viewBox.baseVal.width || svgElement.width.baseVal.value;
+            const svgHeight = svgElement.viewBox.baseVal.height || svgElement.height.baseVal.value;
+            const scale = 2; // Scale for better quality
+            
+            canvas.width = svgWidth * scale;
+            canvas.height = svgHeight * scale;
+            context.scale(scale, scale);
+            
+            // Create image from SVG
+            const img = new Image();
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(svgBlob);
+            
+            img.onload = function() {
+                // Draw image to canvas
+                context.fillStyle = 'white';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(img, 0, 0, svgWidth, svgHeight);
+                
+                // Convert canvas to PNG and download
+                try {
+                    canvas.toBlob(function(blob) {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${currentTab}-diagram.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 'image/png');
+                } catch (e) {
+                    console.error('Error creating PNG:', e);
+                    alert('Failed to create PNG. Try using SVG format instead.');
+                }
+            };
+            
+            img.onerror = function() {
+                console.error('Error loading SVG');
+                alert('Failed to create PNG. Try using SVG format instead.');
+            };
+            
+            img.src = url;
         }
-    }
-
-    // Advanced Java parsing for better diagram generation
-    function improveJavaCodeParsing() {
-        // This function can be expanded to improve the parsing logic
-        // for more accurate class diagrams and flowcharts
-        console.log("Advanced parsing will be implemented in future updates");
     }
 
     // Initialize UI elements
     function initializeUI() {
         // Add initial example code to help users get started
-        javaCodeTextarea.value = `public class Person {
-    private String name;
-    private int age;
-    
-    public Person(String name, int age) {
-        this.name = name;
-        this.age = age;
-    }
-    
-    public String getName() {
-        return name;
-    }
-    
-    public void setName(String name) {
-        this.name = name;
-    }
-    
-    public int getAge() {
-        return age;
-    }
-    
-    public void setAge(int age) {
-        if (age > 0) {
-            this.age = age;
+        javaCodeTextarea.value = `public class Main {
+    public static void main(String[] args) {
+        for (int i = 1; i <= 3; i++) {
+            for (int j = 1; j <= 3; j++) {
+                System.out.println("i: " + i + ", j: " + j);
+            }
         }
     }
 }`;
