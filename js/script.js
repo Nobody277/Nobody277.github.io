@@ -1,704 +1,578 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Mermaid with custom settings
-    mermaid.initialize({
-        startOnLoad: false,  // We'll manually initialize it
-        theme: 'dark',
-        securityLevel: 'loose',
-        flowchart: {
-            useMaxWidth: true,
-            htmlLabels: true,
-            curve: 'linear',
-            diagramPadding: 8
-        },
-        themeVariables: {
-            primaryColor: '#3949ab',
-            primaryTextColor: '#fff',
-            primaryBorderColor: '#3949ab',
-            lineColor: '#ffffff',
-            secondaryColor: '#d32f2f',
-            tertiaryColor: '#2a2a2a'
-        },
-        classDiagram: {
-            useMaxWidth: true
-        }
-    });
+// Initialize Mermaid.js with configuration
+mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: {
+        useMaxWidth: false,
+        htmlLabels: true,
+        curve: 'basis'
+    },
+    classeDiagram: {
+        useMaxWidth: false
+    }
+});
 
-    // DOM Elements
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    const inputRadios = document.querySelectorAll('input[name="input-method"]');
-    const pasteContainer = document.getElementById('paste-container');
-    const uploadContainer = document.getElementById('upload-container');
-    const javaCodeTextarea = document.getElementById('java-code');
-    const fileUpload = document.getElementById('file-upload');
-    const fileList = document.getElementById('file-list');
-    const generateBtn = document.getElementById('generate-btn');
-    const diagramOutput = document.getElementById('diagram-output');
-    const downloadSvgBtn = document.getElementById('download-svg-btn');
-    const downloadPngBtn = document.getElementById('download-png-btn');
+// DOM elements
+const javaCodeTextarea = document.getElementById('java-code');
+const generateBtn = document.getElementById('generate-btn');
+const uploadGenerateBtn = document.getElementById('upload-generate-btn');
+const fileInput = document.getElementById('file-input');
+const classDiagramOutput = document.getElementById('class-diagram-output');
+const flowchartOutput = document.getElementById('flowchart-output');
+const downloadClassBtn = document.getElementById('download-class-btn');
+const downloadFlowBtn = document.getElementById('download-flow-btn');
 
-    // Current state
-    let currentTab = 'class-diagram';
-    let uploadedFiles = [];
+// Tab navigation
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+const vizTabBtns = document.querySelectorAll('.viz-tab-btn');
+const vizTabContents = document.querySelectorAll('.viz-tab-content');
+const exampleBtns = document.querySelectorAll('.example-btn');
 
-    // Event Listeners
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            currentTab = button.dataset.tab;
-        });
-    });
-
-    inputRadios.forEach(radio => {
-        radio.addEventListener('change', () => {
-            if (radio.value === 'paste') {
-                pasteContainer.style.display = 'block';
-                uploadContainer.style.display = 'none';
-            } else {
-                pasteContainer.style.display = 'none';
-                uploadContainer.style.display = 'block';
-            }
-        });
-    });
-
-    // Handle file uploads
-    fileUpload.addEventListener('change', handleFileUpload);
-
-    generateBtn.addEventListener('click', generateDiagram);
+// Example code
+const examples = {
+    student: `public class Student {
+    private String name;
+    private String course;
+    private int numericalScore;
+    private char grade;
     
-    if (downloadSvgBtn) {
-        downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
+    public Student() {
+        name = "Unknown";
+        course = "CS101";
+        numericalScore = 0;
+        grade = 'F';
     }
     
-    if (downloadPngBtn) {
-        downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
-    }
-
-    // File upload handler
-    function handleFileUpload(event) {
-        const files = event.target.files;
-        
-        if (files.length > 0) {
-            Array.from(files).forEach(file => {
-                if (file.name.endsWith('.java')) {
-                    // Read file content
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const fileContent = e.target.result;
-                        
-                        // Add to uploadedFiles array
-                        uploadedFiles.push({
-                            name: file.name,
-                            content: fileContent
-                        });
-                        
-                        // Update file list UI
-                        updateFileList();
-                    };
-                    reader.readAsText(file);
-                }
-            });
-        }
-    }
-
-    // Update the file list display
-    function updateFileList() {
-        // Clear existing list
-        fileList.innerHTML = '';
-        
-        // Add each file to the list
-        uploadedFiles.forEach((file, index) => {
-            const fileItem = document.createElement('div');
-            fileItem.className = 'file-item';
-            
-            const fileName = document.createElement('div');
-            fileName.className = 'file-item-name';
-            fileName.innerHTML = `<i class="fas fa-file-code"></i> ${file.name}`;
-            
-            const removeBtn = document.createElement('button');
-            removeBtn.className = 'file-item-remove';
-            removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-            removeBtn.addEventListener('click', () => {
-                uploadedFiles.splice(index, 1);
-                updateFileList();
-            });
-            
-            fileItem.appendChild(fileName);
-            fileItem.appendChild(removeBtn);
-            fileList.appendChild(fileItem);
-        });
-    }
-
-    // Functions
-    function generateDiagram() {
-        let javaCode = '';
-        
-        // Get code based on selected input method
-        const isPasteMethod = document.querySelector('input[name="input-method"]:checked').value === 'paste';
-        
-        if (isPasteMethod) {
-            javaCode = javaCodeTextarea.value.trim();
-            
-            if (!javaCode) {
-                alert('Please enter Java code or upload a file.');
-                return;
-            }
-        } else {
-            if (uploadedFiles.length === 0) {
-                alert('Please upload at least one Java file.');
-                return;
-            }
-            
-            // Concatenate all file contents (for flowcharts, we'll use the first file)
-            if (currentTab === 'class-diagram') {
-                // For class diagrams, we'll analyze all files together
-                javaCode = uploadedFiles.map(file => file.content).join('\n\n');
-            } else {
-                // For flowcharts, just use the first file
-                javaCode = uploadedFiles[0].content;
-            }
-        }
-
-        try {
-            let mermaidCode;
-            
-            if (currentTab === 'class-diagram') {
-                mermaidCode = generateClassDiagram(javaCode);
-            } else {
-                mermaidCode = generateFlowchart(javaCode);
-            }
-
-            diagramOutput.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
-            
-            // Initialize Mermaid with error handling
-            try {
-                mermaid.init(undefined, document.querySelectorAll('.mermaid'));
-                
-                // Add syntax highlighting classes
-                applyCustomStyling();
-                
-                // Only enable download buttons if diagram was successfully generated
-                if (diagramOutput.querySelector('svg')) {
-                    if (downloadSvgBtn) downloadSvgBtn.disabled = false;
-                    if (downloadPngBtn) downloadPngBtn.disabled = false;
-                } else {
-                    throw new Error("SVG diagram was not created");
-                }
-            } catch (mermaidError) {
-                console.error("Mermaid error:", mermaidError);
-                handleError("Mermaid diagram generation failed", mermaidError);
-            }
-        } catch (error) {
-            console.error("Generation error:", error);
-            handleError("Error generating diagram", error);
-        }
-    }
-
-    function generateClassDiagram(javaCode) {
-        // Split multiple files by looking for class declarations
-        const files = getFileSections(javaCode);
-        
-        // Create a more structured class diagram
-        let mermaidCode = 'classDiagram\n';
-        let processedClasses = [];
-        
-        // Process each file
-        for (const file of files) {
-            const fileContent = file.content;
-            
-            // Extract class name
-            const classNameMatch = fileContent.match(/class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?/);
-            if (!classNameMatch) continue;
-            
-            const className = classNameMatch[1];
-            const parentClass = classNameMatch[2] || null;
-            
-            // Skip if already processed
-            if (processedClasses.includes(className)) continue;
-            processedClasses.push(className);
-            
-            // Add class to diagram
-            mermaidCode += `    class ${className} {\n`;
-            
-            // Find and add variables section
-            const variables = extractVariables(fileContent);
-            if (variables.length > 0) {
-                mermaidCode += `        Variables\n`;
-                for (const variable of variables) {
-                    mermaidCode += `        ${variable.type} ${variable.name}\n`;
-                }
-            } else {
-                mermaidCode += `        No variables\n`;
-            }
-            
-            // Find and add methods section
-            const methods = extractMethods(fileContent);
-            if (methods.length > 0) {
-                mermaidCode += `        Methods\n`;
-                for (const method of methods) {
-                    mermaidCode += `        ${method.accessModifier} ${method.returnType} ${method.name}(${method.params})\n`;
-                    
-                    // Add conditional statements if present
-                    const conditionals = extractConditionals(method.body);
-                    for (const cond of conditionals) {
-                        mermaidCode += `        ${cond}\n`;
-                    }
-                }
-            }
-            
-            mermaidCode += `    }\n`;
-            
-            // Add inheritance if exists
-            if (parentClass) {
-                mermaidCode += `    ${className} --|> ${parentClass}\n`;
-            }
-            
-            // Add relationships with other classes
-            const relationships = findRelationships(fileContent, className, processedClasses);
-            for (const rel of relationships) {
-                mermaidCode += `    ${rel}\n`;
-            }
-        }
-        
-        // Add custom styling directives
-        mermaidCode += `    
-    classDef default fill:#2d2d2d,stroke:#5a7cb6,color:white
-    classDef header fill:#5a7cb6,stroke:#5a7cb6,color:white
-    `;
-        
-        return mermaidCode;
+    public Student(String name, String course, int score) {
+        this.name = name;
+        this.course = course;
+        this.numericalScore = score;
+        calculateGrade();
     }
     
-    // Helper function to split code into file sections
-    function getFileSections(javaCode) {
-        // If multiple files were uploaded, they're already separate
-        if (uploadedFiles.length > 1) {
-            return uploadedFiles;
-        }
-        
-        // Otherwise try to identify individual classes in the pasted code
-        const fileSections = [];
-        const classMatches = javaCode.matchAll(/(?:public|private|protected)?\s*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?\s*{/g);
-        
-        let lastIndex = 0;
-        let fileName = "Unknown.java";
-        
-        for (const match of classMatches) {
-            const className = match[1];
-            const startIndex = match.index;
-            
-            // If this isn't the first class, add the previous one
-            if (lastIndex > 0) {
-                const content = javaCode.substring(lastIndex, startIndex);
-                fileSections.push({
-                    name: fileName,
-                    content: content
-                });
-            }
-            
-            lastIndex = startIndex;
-            fileName = `${className}.java`;
-        }
-        
-        // Add the last section
-        if (lastIndex < javaCode.length) {
-            fileSections.push({
-                name: fileName,
-                content: javaCode.substring(lastIndex)
-            });
-        }
-        
-        // If no sections were found, treat it as a single file
-        if (fileSections.length === 0) {
-            fileSections.push({
-                name: "Unknown.java",
-                content: javaCode
-            });
-        }
-        
-        return fileSections;
-    }
-    
-    // Extract variables from class code
-    function extractVariables(classCode) {
-        const variables = [];
-        const variableRegex = /(private|public|protected)\s+(?:final\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)(?:\s*=\s*[^;]+)?;/g;
-        
-        let match;
-        while ((match = variableRegex.exec(classCode)) !== null) {
-            const accessModifier = match[1];
-            const type = match[2];
-            const name = match[3];
-            
-            variables.push({
-                accessModifier: accessModifier,
-                type: type,
-                name: name
-            });
-        }
-        
-        return variables;
-    }
-    
-    // Extract methods from class code
-    function extractMethods(classCode) {
-        const methods = [];
-        // Match method declarations, including their body
-        const methodRegex = /(private|public|protected)\s+(?:static\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)\s*\(([^)]*)\)\s*{([^}]*(?:{[^}]*}[^}]*)*)}/g;
-        
-        let match;
-        while ((match = methodRegex.exec(classCode)) !== null) {
-            const accessModifier = match[1];
-            const returnType = match[2];
-            const name = match[3];
-            const params = match[4];
-            const body = match[5] || '';
-            
-            methods.push({
-                accessModifier: accessModifier,
-                returnType: returnType,
-                name: name,
-                params: params,
-                body: body
-            });
-        }
-        
-        return methods;
-    }
-    
-    // Extract conditional statements like if/else
-    function extractConditionals(methodBody) {
-        const conditionals = [];
-        
-        // Match if and else if statements
-        const ifRegex = /(?:else\s+)?if\s*\(([^)]+)\)/g;
-        
-        let match;
-        while ((match = ifRegex.exec(methodBody)) !== null) {
-            const condition = match[1].trim();
-            conditionals.push(`${match[0].includes('else') ? 'else if' : 'if'}(${condition})`);
-        }
-        
-        // Match standalone else statements
-        const elseRegex = /else\s*{/g;
-        while ((match = elseRegex.exec(methodBody)) !== null) {
-            conditionals.push('else');
-        }
-        
-        return conditionals;
-    }
-    
-    // Find relationships between classes
-    function findRelationships(classCode, className, otherClasses) {
-        const relationships = [];
-        
-        // Look for instance declarations of other classes
-        for (const otherClass of otherClasses) {
-            if (otherClass === className) continue;
-            
-            const instanceRegex = new RegExp(`${otherClass}\\s+\\w+\\s*=`, 'g');
-            if (instanceRegex.test(classCode)) {
-                relationships.push(`${className} --> ${otherClass} : uses`);
-            }
-        }
-        
-        return relationships;
-    }
-
-    function generateFlowchart(javaCode) {
-        // Find class and method declarations
-        const classRegex = /class\s+(\w+)/g;
-        const methodRegex = /(?:public|private|protected)(?:\s+static)?\s+(\w+)\s+(\w+)\s*\(([^)]*)\)/g;
-        let flowchart = 'flowchart TD\n';
-        
-        // Add class declaration
-        let className = "Unknown";
-        let classMatch = classRegex.exec(javaCode);
-        if (classMatch) {
-            className = classMatch[1];
-            flowchart += `    class[public class ${className}]\n`;
-            flowchart += `    class:::classStyle\n`;
-        }
-        
-        // Find main method
-        methodRegex.lastIndex = 0;
-        let methodMatch;
-        while ((methodMatch = methodRegex.exec(javaCode)) !== null) {
-            const returnType = methodMatch[1];
-            const methodName = methodMatch[2];
-            const params = methodMatch[3];
-            
-            if (methodName === "main") {
-                // Add main method signature
-                flowchart += `    class --> mainSig[public static void main(String]\n`;
-                flowchart += `    mainSig:::codeStyle\n`;
-                flowchart += `    mainSig --> args[args)]\n`;
-                flowchart += `    args:::codeStyle\n`;
-                
-                // Extract method body
-                const methodBodyRegex = new RegExp(`${methodName}\\s*\\([^)]*\\)\\s*{([^}]*(?:{[^}]*})*[^}]*)}`, 'gs');
-                const bodyMatch = methodBodyRegex.exec(javaCode);
-                
-                if (bodyMatch) {
-                    const body = bodyMatch[1];
-                    
-                    // Parse for loops specifically for nested loops like in the example
-                    const forLoopRegex = /for\s*\(([^;]+);([^;]+);([^)]+)\)(?:\s*{)?([^}]*(?:{[^}]*})*[^}]*)?(?:})?/gs;
-                    let outerLoopMatch = forLoopRegex.exec(body);
-                    
-                    if (outerLoopMatch) {
-                        const outerInit = outerLoopMatch[1].trim();
-                        const outerCond = outerLoopMatch[2].trim();
-                        const outerIncr = outerLoopMatch[3].trim();
-                        const outerBody = outerLoopMatch[4] || '';
-                        
-                        // Outer loop initialization
-                        flowchart += `    args --> outerInit[${outerInit}]\n`;
-                        flowchart += `    outerInit:::codeStyle\n`;
-                        
-                        // Outer loop condition
-                        flowchart += `    outerInit --> outerCond{${outerCond}}\n`;
-                        flowchart += `    outerCond:::conditionStyle\n`;
-                        
-                        // Find nested loop
-                        forLoopRegex.lastIndex = 0; // Reset regex to search in the outer loop body
-                        let innerLoopMatch = forLoopRegex.exec(outerBody);
-                        
-                        if (innerLoopMatch) {
-                            const innerInit = innerLoopMatch[1].trim();
-                            const innerCond = innerLoopMatch[2].trim();
-                            const innerIncr = innerLoopMatch[3].trim();
-                            const innerBody = innerLoopMatch[4] || '';
-                            
-                            // Inner loop initialization (when outer loop condition is true)
-                            flowchart += `    outerCond -->|True| innerInit[${innerInit}]\n`;
-                            flowchart += `    innerInit:::codeStyle\n`;
-                            
-                            // Inner loop condition
-                            flowchart += `    innerInit --> innerCond{${innerCond}}\n`;
-                            flowchart += `    innerCond:::conditionStyle\n`;
-                            
-                            // Find print statements in inner loop
-                            const printRegex = /System\.out\.println\s*\((.*?)\)/g;
-                            let printMatch = printRegex.exec(innerBody);
-                            
-                            if (printMatch) {
-                                // Print statement (when inner loop condition is true)
-                                flowchart += `    innerCond -->|True| print[System.out.println(${printMatch[1]})]\n`;
-                                flowchart += `    print:::codeStyle\n`;
-                                
-                                // Inner loop increment
-                                flowchart += `    print --> innerIncr[${innerIncr}]\n`;
-                                flowchart += `    innerIncr:::codeStyle\n`;
-                                
-                                // Back to inner condition
-                                flowchart += `    innerIncr --> innerCond\n`;
-                            } else {
-                                // Generic inner loop body
-                                flowchart += `    innerCond -->|True| innerBody[Inner Loop Body]\n`;
-                                flowchart += `    innerBody:::codeStyle\n`;
-                                flowchart += `    innerBody --> innerIncr[${innerIncr}]\n`;
-                                flowchart += `    innerIncr:::codeStyle\n`;
-                                flowchart += `    innerIncr --> innerCond\n`;
-                            }
-                            
-                            // Exit inner loop to outer loop increment
-                            flowchart += `    innerCond -->|False| outerIncr[${outerIncr}]\n`;
-                            flowchart += `    outerIncr:::codeStyle\n`;
-                            
-                            // Back to outer condition
-                            flowchart += `    outerIncr --> outerCond\n`;
-                        } else {
-                            // Simple outer loop without nesting
-                            flowchart += `    outerCond -->|True| outerBody[Loop Body]\n`;
-                            flowchart += `    outerBody:::codeStyle\n`;
-                            flowchart += `    outerBody --> outerIncr[${outerIncr}]\n`;
-                            flowchart += `    outerIncr:::codeStyle\n`;
-                            flowchart += `    outerIncr --> outerCond\n`;
-                        }
-                        
-                        // Exit outer loop
-                        flowchart += `    outerCond -->|False| exit[Exit Loop]\n`;
-                        flowchart += `    exit:::codeStyle\n`;
-                    }
-                }
-            }
-        }
-        
-        // Add style definitions to match the image
-        flowchart += `\n    classDef classStyle fill:#d32f2f,stroke:#d32f2f,color:white,rx:25,ry:25\n`;
-        flowchart += `    classDef conditionStyle fill:#d32f2f,stroke:#d32f2f,color:white,shape:diamond\n`;
-        flowchart += `    classDef codeStyle fill:#3949ab,stroke:#3949ab,color:white\n`;
-        
-        return flowchart;
-    }
-
-    // Add custom styling to the generated diagram
-    function applyCustomStyling() {
-        if (!diagramOutput.querySelector('svg')) return;
-        
-        // Apply custom styling to class diagrams
-        if (currentTab === 'class-diagram') {
-            // Apply styling to class diagram elements
-            const classTitles = diagramOutput.querySelectorAll('.classTitle');
-            classTitles.forEach(title => {
-                title.parentElement.classList.add('title-section');
-            });
-            
-            // Style variable and method text for syntax highlighting
-            const classSections = diagramOutput.querySelectorAll('.section');
-            classSections.forEach(section => {
-                const text = section.querySelector('text');
-                if (text) {
-                    const content = text.textContent;
-                    
-                    // Apply syntax highlighting based on content
-                    if (content.includes('String') || content.includes('int') || content.includes('boolean')) {
-                        const formattedContent = content.replace(
-                            /(String|int|char|boolean|double|float|void|static)/g, 
-                            '<tspan class="type">$1</tspan>'
-                        );
-                        text.innerHTML = formattedContent;
-                    }
-                    
-                    if (content.includes('public') || content.includes('private') || content.includes('protected')) {
-                        const formattedContent = text.innerHTML.replace(
-                            /(public|private|protected|if|else)/g, 
-                            '<tspan class="keyword">$1</tspan>'
-                        );
-                        text.innerHTML = formattedContent;
-                    }
-                }
-            });
-        }
-    }
-
-    function downloadDiagram(format) {
-        const svgElement = diagramOutput.querySelector('svg');
-        if (!svgElement) {
-            alert('No diagram available to download. Please generate a diagram first.');
-            return;
-        }
-        
-        if (format === 'svg') {
-            // SVG Download
-            const svgData = new XMLSerializer().serializeToString(svgElement);
-            const blob = new Blob([svgData], { type: 'image/svg+xml' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${currentTab}-diagram.svg`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        } else if (format === 'png') {
-            // PNG Download
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            
-            // Set canvas dimensions
-            const svgWidth = svgElement.viewBox.baseVal.width || svgElement.width.baseVal.value;
-            const svgHeight = svgElement.viewBox.baseVal.height || svgElement.height.baseVal.value;
-            const scale = 2; // Scale for better quality
-            
-            canvas.width = svgWidth * scale;
-            canvas.height = svgHeight * scale;
-            context.scale(scale, scale);
-            
-            // Create image from SVG
-            const img = new Image();
-            const svgData = new XMLSerializer().serializeToString(svgElement);
-            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-            const url = URL.createObjectURL(svgBlob);
-            
-            img.onload = function() {
-                // Draw image to canvas
-                context.fillStyle = '#1e1e1e'; // Match background color
-                context.fillRect(0, 0, canvas.width, canvas.height);
-                context.drawImage(img, 0, 0, svgWidth, svgHeight);
-                
-                // Convert canvas to PNG and download
-                try {
-                    canvas.toBlob(function(blob) {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${currentTab}-diagram.png`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }, 'image/png');
-                } catch (e) {
-                    console.error('Error creating PNG:', e);
-                    alert('Failed to create PNG. Try using SVG format instead.');
-                }
-            };
-            
-            img.onerror = function() {
-                console.error('Error loading SVG');
-                alert('Failed to create PNG. Try using SVG format instead.');
-            };
-            
-            img.src = url;
-        }
-    }
-
-    // Error handling function
-    function handleError(message, error) {
-        console.error(message, error);
-        diagramOutput.innerHTML = `<div class="error-message">${message}: ${error.message}</div>`;
-        
-        // Safely disable buttons
-        if (downloadSvgBtn) downloadSvgBtn.disabled = true;
-        if (downloadPngBtn) downloadPngBtn.disabled = true;
-    }
-
-    // Initialize UI
-    function initializeUI() {
-        // Add initial example code to help users get started
-        javaCodeTextarea.value = `public class Main {
-    public static void main(String[] args) {
-        // Create a new student
-        Student student = new Student();
-        student.name = "John Doe";
-        student.course = "Computer Science";
-        student.numericalScore = 85;
-        student.printGrade();
-    }
-}
-
-class Student {
-    String name;
-    String course;
-    int numericalScore;
-    char grade;
-    
-    public void printGrade() {
-        if (numericalScore >= 80) {
+    private void calculateGrade() {
+        if (numericalScore >= 90) {
             grade = 'A';
-        } else if (numericalScore >= 70) {
+        } else if (numericalScore >= 80) {
             grade = 'B';
-        } else if (numericalScore >= 60) {
+        } else if (numericalScore >= 70) {
             grade = 'C';
+        } else if (numericalScore >= 60) {
+            grade = 'D';
         } else {
             grade = 'F';
         }
-        System.out.println(name + " got a " + grade + " in " + course);
     }
-}`;
+    
+    public void printGrade() {
+        System.out.println(name + "'s grade in " + course + ": " + grade + " (" + numericalScore + ")");
+    }
+    
+    // Getters and setters
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    
+    public String getCourse() { return course; }
+    public void setCourse(String course) { this.course = course; }
+    
+    public int getNumericalScore() { return numericalScore; }
+    public void setNumericalScore(int score) {
+        this.numericalScore = score;
+        calculateGrade();
+    }
+    
+    public char getGrade() { return grade; }
+}`,
+    loops: `public class NestedLoopExample {
+    public static void main(String[] args) {
+        // Print a pattern using nested loops
+        for (int i = 1; i <= 5; i++) {
+            for (int j = 1; j <= i; j++) {
+                System.out.print("* ");
+            }
+            System.out.println();
+        }
         
-        // Make sure download buttons are disabled initially
-        if (downloadSvgBtn) downloadSvgBtn.disabled = true;
-        if (downloadPngBtn) downloadPngBtn.disabled = true;
+        // Calculate multiplication table
+        System.out.println("\\nMultiplication Table:");
+        for (int i = 1; i <= 3; i++) {
+            for (int j = 1; j <= 3; j++) {
+                System.out.print(i + "x" + j + "=" + (i*j) + "\\t");
+            }
+            System.out.println();
+        }
     }
+}`,
+    calculator: `import java.util.Scanner;
 
-    // Initialize UI safely
-    try {
-        initializeUI();
-    } catch (error) {
-        handleError("Failed to initialize UI", error);
+public class Calculator {
+    private double result;
+    
+    public Calculator() {
+        result = 0;
     }
+    
+    public void add(double number) {
+        result += number;
+    }
+    
+    public void subtract(double number) {
+        result -= number;
+    }
+    
+    public void multiply(double number) {
+        result *= number;
+    }
+    
+    public void divide(double number) {
+        if (number != 0) {
+            result /= number;
+        } else {
+            System.out.println("Error: Division by zero");
+        }
+    }
+    
+    public double getResult() {
+        return result;
+    }
+    
+    public void clear() {
+        result = 0;
+    }
+    
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        Calculator calc = new Calculator();
+        boolean running = true;
+        
+        System.out.println("Simple Calculator");
+        
+        while (running) {
+            System.out.println("\\nCurrent result: " + calc.getResult());
+            System.out.println("1. Add");
+            System.out.println("2. Subtract");
+            System.out.println("3. Multiply");
+            System.out.println("4. Divide");
+            System.out.println("5. Clear");
+            System.out.println("6. Exit");
+            System.out.print("Choose an operation (1-6): ");
+            
+            int choice = scanner.nextInt();
+            
+            if (choice >= 1 && choice <= 4) {
+                System.out.print("Enter number: ");
+                double number = scanner.nextDouble();
+                
+                switch (choice) {
+                    case 1: calc.add(number); break;
+                    case 2: calc.subtract(number); break;
+                    case 3: calc.multiply(number); break;
+                    case 4: calc.divide(number); break;
+                }
+            } else if (choice == 5) {
+                calc.clear();
+            } else if (choice == 6) {
+                running = false;
+                System.out.println("Calculator closed.");
+            } else {
+                System.out.println("Invalid choice. Please try again.");
+            }
+        }
+        
+        scanner.close();
+    }
+}`
+};
+
+// Tab navigation event listeners
+tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        // Remove active class from all buttons and content
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        
+        // Add active class to clicked button
+        btn.classList.add('active');
+        
+        // Show corresponding content
+        const targetId = btn.getAttribute('data-target');
+        document.getElementById(targetId).classList.add('active');
+    });
+});
+
+vizTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        // Remove active class from all buttons and content
+        vizTabBtns.forEach(b => b.classList.remove('active'));
+        vizTabContents.forEach(c => c.classList.remove('active'));
+        
+        // Add active class to clicked button
+        btn.classList.add('active');
+        
+        // Show corresponding content
+        const targetId = btn.getAttribute('data-target');
+        document.getElementById(targetId).classList.add('active');
+    });
+});
+
+// Example buttons
+exampleBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const exampleKey = btn.getAttribute('data-example');
+        javaCodeTextarea.value = examples[exampleKey];
+        
+        // Switch to paste code tab
+        tabBtns[0].click();
+    });
+});
+
+// File upload handling
+fileInput.addEventListener('change', handleFileUpload);
+
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        javaCodeTextarea.value = e.target.result;
+        
+        // Switch to paste code tab
+        tabBtns[0].click();
+    };
+    reader.readAsText(file);
+}
+
+// Generate diagrams from code
+generateBtn.addEventListener('click', () => generateDiagrams(javaCodeTextarea.value));
+uploadGenerateBtn.addEventListener('click', () => generateDiagrams(javaCodeTextarea.value));
+
+function generateDiagrams(code) {
+    if (!code.trim()) {
+        alert('Please enter or upload Java code first.');
+        return;
+    }
+    
+    try {
+        const classDiagram = generateClassDiagram(code);
+        const flowchart = generateFlowchart(code);
+        
+        renderDiagrams(classDiagram, flowchart);
+        enableDownloadButtons();
+    } catch (error) {
+        console.error('Error generating diagrams:', error);
+        alert('Error generating diagrams. Please check the console for details.');
+    }
+}
+
+function renderDiagrams(classDiagram, flowchart) {
+    classDiagramOutput.innerHTML = classDiagram;
+    flowchartOutput.innerHTML = flowchart;
+    
+    // Re-render mermaid diagrams
+    mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+}
+
+function enableDownloadButtons() {
+    downloadClassBtn.disabled = false;
+    downloadFlowBtn.disabled = false;
+    
+    downloadClassBtn.addEventListener('click', () => downloadSVG('class-diagram-output'));
+    downloadFlowBtn.addEventListener('click', () => downloadSVG('flowchart-output'));
+}
+
+function downloadSVG(elementId) {
+    // Get the SVG content
+    const svgElement = document.querySelector(`#${elementId} svg`);
+    if (!svgElement) {
+        alert('No diagram to download.');
+        return;
+    }
+    
+    // Create a blob from the SVG content
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const blob = new Blob([svgData], { type: 'image/svg+xml' });
+    
+    // Create a download link and trigger it
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${elementId}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Main Java parsing functions
+function generateClassDiagram(code) {
+    // Simple parser to extract class information
+    const classInfo = parseJavaClass(code);
+    
+    if (!classInfo) {
+        return `classDiagram
+    class NoClassFound {
+        +String message
+        +getMessage() String
+    }
+    
+    note for NoClassFound "No valid Java class found in the code."`;
+    }
+    
+    // Generate Mermaid class diagram syntax
+    let diagram = 'classDiagram\n';
+    
+    // Add the class and its properties
+    diagram += `    class ${classInfo.name} {\n`;
+    
+    // Add fields
+    classInfo.fields.forEach(field => {
+        const visibility = field.visibility === 'private' ? '-' : '+';
+        diagram += `        ${visibility}${field.type} ${field.name}\n`;
+    });
+    
+    // Add methods
+    classInfo.methods.forEach(method => {
+        const visibility = method.visibility === 'private' ? '-' : '+';
+        const returnType = method.returnType ? ` ${method.returnType}` : '';
+        diagram += `        ${visibility}${method.name}(${method.parameters})${returnType}\n`;
+    });
+    
+    diagram += '    }\n';
+    
+    // Add any inheritance or implementation relationships
+    if (classInfo.extends) {
+        diagram += `    ${classInfo.extends} <|-- ${classInfo.name}\n`;
+    }
+    
+    if (classInfo.implements.length > 0) {
+        classInfo.implements.forEach(impl => {
+            diagram += `    ${impl} <|.. ${classInfo.name}\n`;
+        });
+    }
+    
+    return diagram;
+}
+
+function generateFlowchart(code) {
+    // Parse method for flowchart (typically main method or a specific method)
+    const methodInfo = parseJavaMethod(code);
+    
+    if (!methodInfo) {
+        return `flowchart TD
+    A[No Method Found] --> B[Please provide Java code with methods]
+    
+    style A fill:#f44336,color:#fff
+    style B fill:#ff9800,color:#fff`;
+    }
+    
+    // Generate Mermaid flowchart syntax
+    let flowchart = 'flowchart TD\n';
+    
+    // Start node
+    flowchart += `    start[${methodInfo.name}] --> process1\n`;
+    flowchart += '    style start fill:#4CAF50,color:#fff\n';
+    
+    // Process simple statements, if-else, loops, etc.
+    let stmtIndex = 1;
+    
+    methodInfo.statements.forEach(stmt => {
+        if (stmt.type === 'if') {
+            // If statement
+            flowchart += `    process${stmtIndex}[${escapeHtml(stmt.condition)}] --> condition${stmtIndex}{${escapeHtml(stmt.condition)}?}\n`;
+            flowchart += `    condition${stmtIndex} -->|True| trueProcess${stmtIndex}[${escapeHtml(stmt.trueBlock)}]\n`;
+            
+            if (stmt.falseBlock) {
+                flowchart += `    condition${stmtIndex} -->|False| falseProcess${stmtIndex}[${escapeHtml(stmt.falseBlock)}]\n`;
+                flowchart += `    falseProcess${stmtIndex} --> process${stmtIndex + 1}\n`;
+            } else {
+                flowchart += `    condition${stmtIndex} -->|False| process${stmtIndex + 1}\n`;
+            }
+            
+            flowchart += `    trueProcess${stmtIndex} --> process${stmtIndex + 1}\n`;
+        } else if (stmt.type === 'for' || stmt.type === 'while') {
+            // Loop statement
+            flowchart += `    process${stmtIndex}[${escapeHtml(stmt.init)}] --> loopCondition${stmtIndex}{${escapeHtml(stmt.condition)}?}\n`;
+            flowchart += `    loopCondition${stmtIndex} -->|True| loopBody${stmtIndex}[${escapeHtml(stmt.body)}]\n`;
+            flowchart += `    loopBody${stmtIndex} --> loopUpdate${stmtIndex}[${escapeHtml(stmt.update)}]\n`;
+            flowchart += `    loopUpdate${stmtIndex} --> loopCondition${stmtIndex}\n`;
+            flowchart += `    loopCondition${stmtIndex} -->|False| process${stmtIndex + 1}\n`;
+        } else {
+            // Simple statement
+            if (stmtIndex < methodInfo.statements.length) {
+                flowchart += `    process${stmtIndex}[${escapeHtml(stmt.code)}] --> process${stmtIndex + 1}\n`;
+            } else {
+                flowchart += `    process${stmtIndex}[${escapeHtml(stmt.code)}] --> end\n`;
+            }
+        }
+        
+        stmtIndex++;
+    });
+    
+    // End node if not linked yet
+    if (methodInfo.statements.length === 0) {
+        flowchart += '    start --> end\n';
+    }
+    flowchart += '    end[End]\n';
+    flowchart += '    style end fill:#f44336,color:#fff\n';
+    
+    return flowchart;
+}
+
+// Java parsing helper functions
+function parseJavaClass(code) {
+    // Very basic class parsing - in a real app, use a proper Java parser
+    const classRegex = /\s*(?:public|private|protected)?\s*(?:abstract|final)?\s*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?\s*\{/;
+    const fieldRegex = /\s*(?:(public|private|protected)\s+)?(?:static\s+|final\s+)*(\w+(?:<[\w<>]+>)?)\s+(\w+)\s*(?:=\s*[^;]+)?;/g;
+    const methodRegex = /\s*(?:(public|private|protected)\s+)?(?:static\s+|final\s+)*(?:(\w+(?:<[\w<>]+>)?)\s+)?(\w+)\s*\(([\w\s,<>[\]]*)\)\s*(?:throws\s+[\w,\s]+)?\s*\{/g;
+    
+    const classMatch = code.match(classRegex);
+    if (!classMatch) return null;
+    
+    const className = classMatch[1];
+    const extendsClass = classMatch[2] || null;
+    const implementsInterfaces = classMatch[3] ? classMatch[3].split(',').map(i => i.trim()) : [];
+    
+    const fields = [];
+    let fieldMatch;
+    while ((fieldMatch = fieldRegex.exec(code)) !== null) {
+        fields.push({
+            visibility: fieldMatch[1] || 'default',
+            type: fieldMatch[2],
+            name: fieldMatch[3]
+        });
+    }
+    
+    const methods = [];
+    let methodMatch;
+    while ((methodMatch = methodRegex.exec(code)) !== null) {
+        methods.push({
+            visibility: methodMatch[1] || 'default',
+            returnType: methodMatch[2] || 'void',
+            name: methodMatch[3],
+            parameters: methodMatch[4] || ''
+        });
+    }
+    
+    return {
+        name: className,
+        extends: extendsClass,
+        implements: implementsInterfaces,
+        fields,
+        methods
+    };
+}
+
+function parseJavaMethod(code) {
+    // Focus on main method or first method found
+    const methodRegex = /\s*(?:public|private|protected)?\s*(?:static\s+)?(?:final\s+)?(?:(\w+(?:<[\w<>]+>)?)\s+)?(\w+)\s*\(([\w\s,<>[\]]*)\)\s*(?:throws\s+[\w,\s]+)?\s*\{([^}]*)\}/g;
+    
+    let methodMatch;
+    while ((methodMatch = methodRegex.exec(code)) !== null) {
+        const methodName = methodMatch[2];
+        const methodBody = methodMatch[4];
+        
+        // Simple statement parsing - in a real app, use AST
+        const statements = [];
+        
+        // Look for if statements
+        const ifRegex = /if\s*\((.*?)\)\s*\{([^}]*)\}(?:\s*else\s*\{([^}]*)\})?/g;
+        let ifMatch;
+        while ((ifMatch = ifRegex.exec(methodBody)) !== null) {
+            statements.push({
+                type: 'if',
+                condition: ifMatch[1].trim(),
+                trueBlock: ifMatch[2].trim(),
+                falseBlock: ifMatch[3] ? ifMatch[3].trim() : null
+            });
+        }
+        
+        // Look for for loops
+        const forRegex = /for\s*\((.*?);\s*(.*?);\s*(.*?)\)\s*\{([^}]*)\}/g;
+        let forMatch;
+        while ((forMatch = forRegex.exec(methodBody)) !== null) {
+            statements.push({
+                type: 'for',
+                init: forMatch[1].trim(),
+                condition: forMatch[2].trim(),
+                update: forMatch[3].trim(),
+                body: forMatch[4].trim()
+            });
+        }
+        
+        // Look for while loops
+        const whileRegex = /while\s*\((.*?)\)\s*\{([^}]*)\}/g;
+        let whileMatch;
+        while ((whileMatch = whileRegex.exec(methodBody)) !== null) {
+            statements.push({
+                type: 'while',
+                condition: whileMatch[1].trim(),
+                body: whileMatch[2].trim(),
+                init: '',
+                update: ''
+            });
+        }
+        
+        // Look for other statements (simplified)
+        const stmtRegex = /([^;{]+);/g;
+        let stmtMatch;
+        while ((stmtMatch = stmtRegex.exec(methodBody)) !== null) {
+            const stmt = stmtMatch[1].trim();
+            if (stmt && !stmt.includes('if') && !stmt.includes('for') && !stmt.includes('while')) {
+                statements.push({
+                    type: 'statement',
+                    code: stmt
+                });
+            }
+        }
+        
+        return {
+            name: methodName,
+            statements
+        };
+    }
+    
+    return null;
+}
+
+// Helper function to escape HTML in flowchart labels
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+        .replace(/\n/g, ' ');
+}
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize with the default example in textarea
+    javaCodeTextarea.value = examples.student;
+    
+    // Initialize drag and drop for file upload
+    const dropZone = document.querySelector('.file-upload');
+    
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('file-upload-hover');
+    });
+    
+    dropZone.addEventListener('dragleave', function() {
+        this.classList.remove('file-upload-hover');
+    });
+    
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('file-upload-hover');
+        
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileUpload({ target: { files: e.dataTransfer.files } });
+        }
+    });
 });
