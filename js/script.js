@@ -159,6 +159,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
+        // Preprocess: remove import statements so that only the relevant code is processed
+        javaCode = javaCode.replace(/import\s+.*;/g, '');
+
         try {
             let mermaidCode;
             
@@ -429,7 +432,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const params = methodMatch[3];
             
             if (methodName === "main") {
-                // Fixed: Add main method signature with complete label
+                // Fixed: Add main method node with complete label
                 flowchart += `    class --> mainSig[public static void main(String[] args)]\n`;
                 flowchart += `    mainSig:::codeStyle\n`;
                 
