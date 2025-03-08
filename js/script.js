@@ -2,12 +2,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize Mermaid
     mermaid.initialize({
         startOnLoad: true,
-        theme: 'default',
+        theme: 'dark',
         securityLevel: 'loose',
         flowchart: {
             useMaxWidth: true,
             htmlLabels: true,
-            curve: 'basis'
+            curve: 'linear',
+            diagramPadding: 8
+        },
+        themeVariables: {
+            primaryColor: '#3949ab',
+            primaryTextColor: '#fff',
+            primaryBorderColor: '#3949ab',
+            lineColor: '#ffffff',
+            secondaryColor: '#d32f2f',
+            tertiaryColor: '#2a2a2a'
         }
     });
 
@@ -179,165 +188,131 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function generateFlowchart(javaCode) {
-        // Find method bodies to analyze
-        const methodBodyRegex = /(?:public|private|protected)(?:\s+static)?\s+(\w+)\s+(\w+)\s*\(([^)]*)\)\s*{([^}]*(?:{[^}]*})*[^}]*)}/gs;
-        let methodMatch;
-        let mermaidCode = 'flowchart TD\n';
-        let idCounter = 1;
+        // Find class and method declarations
+        const classRegex = /class\s+(\w+)/g;
+        const methodRegex = /(?:public|private|protected)(?:\s+static)?\s+(\w+)\s+(\w+)\s*\(([^)]*)\)/g;
+        let flowchart = 'flowchart TD\n';
         
-        while ((methodMatch = methodBodyRegex.exec(javaCode)) !== null) {
+        // Add class declaration
+        let className = "Unknown";
+        let classMatch = classRegex.exec(javaCode);
+        if (classMatch) {
+            className = classMatch[1];
+            flowchart += `    class[public class ${className}]\n`;
+            flowchart += `    class:::classStyle\n`;
+        }
+        
+        // Find main method
+        methodRegex.lastIndex = 0;
+        let methodMatch;
+        while ((methodMatch = methodRegex.exec(javaCode)) !== null) {
             const returnType = methodMatch[1];
             const methodName = methodMatch[2];
             const params = methodMatch[3];
-            const body = methodMatch[4];
             
-            // Add method start
-            mermaidCode += `    start_${methodName}[Start ${methodName}] --> process_${methodName}_1[Method ${methodName}]\n`;
-            let lastNodeId = `process_${methodName}_1`;
-            
-            // Parse the method body - improved to handle nested structures
-            const parsedNodes = parseMethodBody(body, methodName, idCounter);
-            if (parsedNodes.flowchart && parsedNodes.flowchart.length > 0) {
-                mermaidCode += parsedNodes.flowchart.join('\n') + '\n';
-                lastNodeId = parsedNodes.lastNodeId;
-            }
-            
-            // Add method end if not already added
-            mermaidCode += `    ${lastNodeId} --> end_${methodName}[End ${methodName}]\n`;
-            
-            idCounter = parsedNodes.idCounter;
-        }
-        
-        return mermaidCode;
-    }
-    
-    function parseMethodBody(body, methodName, startIdCounter) {
-        let idCounter = startIdCounter;
-        const flowchartLines = [];
-        let lastNodeId = `process_${methodName}_1`;
-        
-        // Handle System.out.println statements
-        const printRegex = /System\.out\.println\(([^)]+)\)/g;
-        let printMatch;
-        while ((printMatch = printRegex.exec(body)) !== null) {
-            const printContent = printMatch[1].replace(/"/g, "'");
-            const nodeId = `print_${methodName}_${idCounter}`;
-            flowchartLines.push(`    ${lastNodeId} --> ${nodeId}[Print: ${printContent}]`);
-            lastNodeId = nodeId;
-            idCounter++;
-        }
-        
-        // Handle for loops (including nested loops)
-        const forLoopRegex = /for\s*\(([^;]+);([^;]+);([^)]+)\)\s*{([^}]*(?:{[^}]*})*[^}]*)}/gs;
-        let forMatch;
-        let loopDepth = 0;
-        
-        while ((forMatch = forLoopRegex.exec(body)) !== null) {
-            loopDepth++;
-            const initialization = forMatch[1].trim();
-            const condition = forMatch[2].trim();
-            const increment = forMatch[3].trim();
-            const loopBody = forMatch[4];
-            
-            // Create loop start node
-            const loopStartId = `loop_start_${methodName}_${idCounter}`;
-            flowchartLines.push(`    ${lastNodeId} --> ${loopStartId}[Init: ${initialization}]`);
-            idCounter++;
-            
-            // Create condition node
-            const conditionId = `loop_cond_${methodName}_${idCounter}`;
-            flowchartLines.push(`    ${loopStartId} --> ${conditionId}{${condition}?}`);
-            idCounter++;
-            
-            // Create loop body
-            const loopBodyId = `loop_body_${methodName}_${idCounter}`;
-            flowchartLines.push(`    ${conditionId} -->|True| ${loopBodyId}[Loop Body]`);
-            idCounter++;
-            
-            // Parse nested loop body
-            const nestedResult = parseMethodBody(loopBody, `${methodName}_L${loopDepth}`, idCounter);
-            if (nestedResult.flowchart && nestedResult.flowchart.length > 0) {
-                flowchartLines.push(...nestedResult.flowchart);
-                idCounter = nestedResult.idCounter;
-            }
-            
-            // Create increment node
-            const incrementId = `loop_incr_${methodName}_${idCounter}`;
-            flowchartLines.push(`    ${nestedResult.lastNodeId || loopBodyId} --> ${incrementId}[${increment}]`);
-            idCounter++;
-            
-            // Loop back to condition
-            flowchartLines.push(`    ${incrementId} --> ${conditionId}`);
-            
-            // Exit loop
-            const loopExitId = `loop_exit_${methodName}_${idCounter}`;
-            flowchartLines.push(`    ${conditionId} -->|False| ${loopExitId}[Continue after loop]`);
-            lastNodeId = loopExitId;
-            idCounter++;
-        }
-        
-        // Handle if statements
-        const ifRegex = /if\s*\(([^)]+)\)\s*{([^}]*)}(?:\s*else\s*{([^}]*)})?/gs;
-        let ifMatch;
-        
-        while ((ifMatch = ifRegex.exec(body)) !== null) {
-            const condition = ifMatch[1].replace(/&&/g, 'AND').replace(/\|\|/g, 'OR');
-            const ifBlock = ifMatch[2];
-            const elseBlock = ifMatch[3];
-            
-            // Create condition node
-            const conditionId = `if_cond_${methodName}_${idCounter}`;
-            flowchartLines.push(`    ${lastNodeId} --> ${conditionId}{${condition}?}`);
-            idCounter++;
-            
-            // Create if block
-            const ifBlockId = `if_block_${methodName}_${idCounter}`;
-            flowchartLines.push(`    ${conditionId} -->|True| ${ifBlockId}[If Block]`);
-            idCounter++;
-            
-            // Parse if block body
-            const ifBlockResult = parseMethodBody(ifBlock, `${methodName}_IF`, idCounter);
-            if (ifBlockResult.flowchart && ifBlockResult.flowchart.length > 0) {
-                flowchartLines.push(...ifBlockResult.flowchart);
-                idCounter = ifBlockResult.idCounter;
-            }
-            
-            let ifEndNodeId = ifBlockResult.lastNodeId || ifBlockId;
-            
-            if (elseBlock) {
-                // Create else block
-                const elseBlockId = `else_block_${methodName}_${idCounter}`;
-                flowchartLines.push(`    ${conditionId} -->|False| ${elseBlockId}[Else Block]`);
-                idCounter++;
+            if (methodName === "main") {
+                // Add main method signature
+                flowchart += `    class --> mainSig[public static void main(String]\n`;
+                flowchart += `    mainSig:::codeStyle\n`;
+                flowchart += `    mainSig --> args[args)]\n`;
+                flowchart += `    args:::codeStyle\n`;
                 
-                // Parse else block body
-                const elseBlockResult = parseMethodBody(elseBlock, `${methodName}_ELSE`, idCounter);
-                if (elseBlockResult.flowchart && elseBlockResult.flowchart.length > 0) {
-                    flowchartLines.push(...elseBlockResult.flowchart);
-                    idCounter = elseBlockResult.idCounter;
+                // Extract method body
+                const methodBodyRegex = new RegExp(`${methodName}\\s*\\([^)]*\\)\\s*{([^}]*(?:{[^}]*})*[^}]*)}`, 'gs');
+                const bodyMatch = methodBodyRegex.exec(javaCode);
+                
+                if (bodyMatch) {
+                    const body = bodyMatch[1];
+                    
+                    // Parse for loops specifically for nested loops like in the example
+                    const forLoopRegex = /for\s*\(([^;]+);([^;]+);([^)]+)\)(?:\s*{)?([^}]*(?:{[^}]*})*[^}]*)?(?:})?/gs;
+                    let outerLoopMatch = forLoopRegex.exec(body);
+                    
+                    if (outerLoopMatch) {
+                        const outerInit = outerLoopMatch[1].trim();
+                        const outerCond = outerLoopMatch[2].trim();
+                        const outerIncr = outerLoopMatch[3].trim();
+                        const outerBody = outerLoopMatch[4] || '';
+                        
+                        // Outer loop initialization
+                        flowchart += `    args --> outerInit[${outerInit}]\n`;
+                        flowchart += `    outerInit:::codeStyle\n`;
+                        
+                        // Outer loop condition
+                        flowchart += `    outerInit --> outerCond{${outerCond}}\n`;
+                        flowchart += `    outerCond:::conditionStyle\n`;
+                        
+                        // Find nested loop
+                        forLoopRegex.lastIndex = 0; // Reset regex to search in the outer loop body
+                        let innerLoopMatch = forLoopRegex.exec(outerBody);
+                        
+                        if (innerLoopMatch) {
+                            const innerInit = innerLoopMatch[1].trim();
+                            const innerCond = innerLoopMatch[2].trim();
+                            const innerIncr = innerLoopMatch[3].trim();
+                            const innerBody = innerLoopMatch[4] || '';
+                            
+                            // Inner loop initialization (when outer loop condition is true)
+                            flowchart += `    outerCond -->|True| innerInit[${innerInit}]\n`;
+                            flowchart += `    innerInit:::codeStyle\n`;
+                            
+                            // Inner loop condition
+                            flowchart += `    innerInit --> innerCond{${innerCond}}\n`;
+                            flowchart += `    innerCond:::conditionStyle\n`;
+                            
+                            // Find print statements in inner loop
+                            const printRegex = /System\.out\.println\s*\((.*?)\)/g;
+                            let printMatch = printRegex.exec(innerBody);
+                            
+                            if (printMatch) {
+                                // Print statement (when inner loop condition is true)
+                                flowchart += `    innerCond -->|True| print[System.out.println(${printMatch[1]})]\n`;
+                                flowchart += `    print:::codeStyle\n`;
+                                
+                                // Inner loop increment
+                                flowchart += `    print --> innerIncr[${innerIncr}]\n`;
+                                flowchart += `    innerIncr:::codeStyle\n`;
+                                
+                                // Back to inner condition
+                                flowchart += `    innerIncr --> innerCond\n`;
+                            } else {
+                                // Generic inner loop body
+                                flowchart += `    innerCond -->|True| innerBody[Inner Loop Body]\n`;
+                                flowchart += `    innerBody:::codeStyle\n`;
+                                flowchart += `    innerBody --> innerIncr[${innerIncr}]\n`;
+                                flowchart += `    innerIncr:::codeStyle\n`;
+                                flowchart += `    innerIncr --> innerCond\n`;
+                            }
+                            
+                            // Exit inner loop to outer loop increment
+                            flowchart += `    innerCond -->|False| outerIncr[${outerIncr}]\n`;
+                            flowchart += `    outerIncr:::codeStyle\n`;
+                            
+                            // Back to outer condition
+                            flowchart += `    outerIncr --> outerCond\n`;
+                        } else {
+                            // Simple outer loop without nesting
+                            flowchart += `    outerCond -->|True| outerBody[Loop Body]\n`;
+                            flowchart += `    outerBody:::codeStyle\n`;
+                            flowchart += `    outerBody --> outerIncr[${outerIncr}]\n`;
+                            flowchart += `    outerIncr:::codeStyle\n`;
+                            flowchart += `    outerIncr --> outerCond\n`;
+                        }
+                        
+                        // Exit outer loop
+                        flowchart += `    outerCond -->|False| exit[Exit Loop]\n`;
+                        flowchart += `    exit:::codeStyle\n`;
+                    }
                 }
-                
-                // Join paths
-                const joinId = `join_${methodName}_${idCounter}`;
-                flowchartLines.push(`    ${ifEndNodeId} --> ${joinId}[Join]`);
-                flowchartLines.push(`    ${elseBlockResult.lastNodeId || elseBlockId} --> ${joinId}`);
-                lastNodeId = joinId;
-                idCounter++;
-            } else {
-                // If there's no else block, create a direct path
-                const afterIfId = `after_if_${methodName}_${idCounter}`;
-                flowchartLines.push(`    ${conditionId} -->|False| ${afterIfId}[Skip If]`);
-                flowchartLines.push(`    ${ifEndNodeId} --> ${afterIfId}`);
-                lastNodeId = afterIfId;
-                idCounter++;
             }
         }
         
-        return {
-            flowchart: flowchartLines,
-            lastNodeId,
-            idCounter
-        };
+        // Add style definitions to match the image
+        flowchart += `\n    classDef classStyle fill:#d32f2f,stroke:#d32f2f,color:white,rx:25,ry:25\n`;
+        flowchart += `    classDef conditionStyle fill:#d32f2f,stroke:#d32f2f,color:white,shape:diamond\n`;
+        flowchart += `    classDef codeStyle fill:#3949ab,stroke:#3949ab,color:white\n`;
+        
+        return flowchart;
     }
 
     function downloadDiagram(format) {
