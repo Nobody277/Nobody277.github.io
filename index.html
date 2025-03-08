@@ -12,7 +12,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/mode/clike/clike.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/addon/edit/matchbrackets.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/addon/comment/comment.min.js"></script>
 </head>
 <body>
     <header>
@@ -63,7 +62,7 @@
                     </div>
                     
                     <div id="paste-container">
-                        <div id="code-editor-container"></div>
+                        <textarea id="java-code" placeholder="Paste your Java code here..."></textarea>
                     </div>
                     
                     <div id="upload-container" style="display: none;">
@@ -75,9 +74,9 @@
                     <div class="result-header">
                         <h3>Generated Diagram</h3>
                         <div class="download-options">
-                        <button id="download-svg-btn" disabled>Download SVG</button>
-                        <button id="download-png-btn" disabled>Download PNG</button>
-                    </div>
+                            <button id="download-svg-btn" disabled>Download SVG</button>
+                            <button id="download-png-btn" disabled>Download PNG</button>
+                        </div>
                     </div>
                     <div id="diagram-output"></div>
                 </div>
@@ -103,7 +102,7 @@
                     <div class="feature">
                         <i class="fas fa-download"></i>
                         <h3>Export</h3>
-                        <p>Download diagrams as SVG for documentation</p>
+                        <p>Download diagrams as SVG or PNG for documentation</p>
                     </div>
                 </div>
             </div>
@@ -113,7 +112,7 @@
             <div class="container">
                 <h2>Contact</h2>
                 <p>Have questions or suggestions? Reach out via GitHub issues or pull requests.</p>
-                <a href="https://github.com/yourusername/yourusername.github.io/issues" class="btn" target="_blank">Open an Issue</a>
+                <a href="https://github.com/Nobody277/Nobody277.github.io/issues" class="btn" target="_blank">Open an Issue</a>
             </div>
         </section>
     </main>
