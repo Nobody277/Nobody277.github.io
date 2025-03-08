@@ -281,6 +281,28 @@ nav ul li a:hover, nav ul li a.active {
   padding: 20px;
   min-height: 300px;
   overflow: auto;
+  background-color: #1e1e1e;
+  border-radius: 4px;
+}
+
+.mermaid {
+  background-color: #1e1e1e;
+}
+
+/* Fix the text centering and colors in mermaid diagrams */
+#diagram-output .flowchart-label {
+  color: white !important;
+  text-align: center !important;
+}
+
+#diagram-output .edgeLabel {
+  color: white !important;
+  background-color: transparent !important;
+  font-weight: bold;
+}
+
+#diagram-output .label foreignObject {
+  overflow: visible;
 }
 
 .error-message {
