@@ -181,14 +181,34 @@ nav ul li a:hover, nav ul li a.active {
   cursor: pointer;
 }
 
-#java-code {
+#code-editor-container {
   width: 100%;
-  height: 250px;
-  padding: 15px;
   border: 1px solid var(--gray-light);
   border-radius: 4px;
-  font-family: monospace;
-  resize: vertical;
+}
+
+.CodeMirror {
+  height: 300px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  border-radius: 4px;
+}
+
+/* Override some CodeMirror styles for better UI integration */
+.cm-s-dracula.CodeMirror {
+  background-color: #282a36;
+  color: #f8f8f2;
+  border-radius: 4px;
+}
+
+.cm-s-dracula .CodeMirror-gutters {
+  background-color: #282a36;
+  border-right: 1px solid #44475a;
+}
+
+.cm-s-dracula .CodeMirror-linenumber {
+  color: #6272a4;
 }
 
 #file-upload {
@@ -261,6 +281,18 @@ nav ul li a:hover, nav ul li a.active {
   padding: 20px;
   min-height: 300px;
   overflow: auto;
+}
+
+.error-message {
+  color: var(--danger);
+  background-color: rgba(234, 67, 53, 0.1);
+  padding: 15px;
+  border-radius: 4px;
+  border-left: 4px solid var(--danger);
+  margin: 10px 0;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* About Section */
