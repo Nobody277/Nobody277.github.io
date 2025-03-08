@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Mermaid with custom settings
+    // Initialize Mermaid with compatible syntax settings
     mermaid.initialize({
-        startOnLoad: false,  // We'll manually initialize it
+        startOnLoad: false,
         theme: 'dark',
         securityLevel: 'loose',
         flowchart: {
@@ -18,9 +18,8 @@ document.addEventListener('DOMContentLoaded', function() {
             secondaryColor: '#d32f2f',
             tertiaryColor: '#2a2a2a'
         },
-        classDiagram: {
-            useMaxWidth: true
-        }
+        // Disable automatic font re-sizing for better stability
+        fontSize: 16
     });
 
     // DOM Elements
@@ -168,22 +167,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 mermaidCode = generateFlowchart(javaCode);
             }
 
-            diagramOutput.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
+            // Log the generated code for debugging
+            console.log("Generated Mermaid code:", mermaidCode);
+            
+            // Clear previous content
+            diagramOutput.innerHTML = '';
+            
+            // Create a new container for the diagram
+            const diagramContainer = document.createElement('div');
+            diagramContainer.className = 'mermaid';
+            diagramContainer.textContent = mermaidCode;
+            diagramOutput.appendChild(diagramContainer);
             
             // Initialize Mermaid with error handling
             try {
-                mermaid.init(undefined, document.querySelectorAll('.mermaid'));
-                
-                // Add syntax highlighting classes
-                applyCustomStyling();
-                
-                // Only enable download buttons if diagram was successfully generated
-                if (diagramOutput.querySelector('svg')) {
-                    if (downloadSvgBtn) downloadSvgBtn.disabled = false;
-                    if (downloadPngBtn) downloadPngBtn.disabled = false;
-                } else {
-                    throw new Error("SVG diagram was not created");
-                }
+                // Use the render API instead of init for better error handling
+                mermaid.render('mermaid-svg', mermaidCode)
+                    .then(result => {
+                        diagramOutput.innerHTML = result.svg;
+                        
+                        // Enable download buttons
+                        if (downloadSvgBtn) downloadSvgBtn.disabled = false;
+                        if (downloadPngBtn) downloadPngBtn.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error("Mermaid rendering error:", error);
+                        handleError("Error rendering diagram", { message: "Syntax error in diagram. Please check console for details." });
+                    });
             } catch (mermaidError) {
                 console.error("Mermaid error:", mermaidError);
                 handleError("Mermaid diagram generation failed", mermaidError);
@@ -195,382 +205,169 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function generateClassDiagram(javaCode) {
-        // Split multiple files by looking for class declarations
-        const files = getFileSections(javaCode);
-        
-        // Create a more structured class diagram
+        // Create a simple class diagram that works reliably with Mermaid 10.5.0
         let mermaidCode = 'classDiagram\n';
-        let processedClasses = [];
         
-        // Process each file
-        for (const file of files) {
-            const fileContent = file.content;
-            
-            // Extract class name
-            const classNameMatch = fileContent.match(/class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?/);
-            if (!classNameMatch) continue;
-            
-            const className = classNameMatch[1];
-            const parentClass = classNameMatch[2] || null;
-            
-            // Skip if already processed
-            if (processedClasses.includes(className)) continue;
-            processedClasses.push(className);
-            
-            // Add class to diagram
-            mermaidCode += `    class ${className} {\n`;
-            
-            // Find and add variables section
-            const variables = extractVariables(fileContent);
-            if (variables.length > 0) {
-                mermaidCode += `        Variables\n`;
-                for (const variable of variables) {
-                    mermaidCode += `        ${variable.type} ${variable.name}\n`;
-                }
-            } else {
-                mermaidCode += `        No variables\n`;
-            }
-            
-            // Find and add methods section
-            const methods = extractMethods(fileContent);
-            if (methods.length > 0) {
-                mermaidCode += `        Methods\n`;
-                for (const method of methods) {
-                    mermaidCode += `        ${method.accessModifier} ${method.returnType} ${method.name}(${method.params})\n`;
-                    
-                    // Add conditional statements if present
-                    const conditionals = extractConditionals(method.body);
-                    for (const cond of conditionals) {
-                        mermaidCode += `        ${cond}\n`;
-                    }
-                }
-            }
-            
-            mermaidCode += `    }\n`;
-            
-            // Add inheritance if exists
-            if (parentClass) {
-                mermaidCode += `    ${className} --|> ${parentClass}\n`;
-            }
-            
-            // Add relationships with other classes
-            const relationships = findRelationships(fileContent, className, processedClasses);
-            for (const rel of relationships) {
-                mermaidCode += `    ${rel}\n`;
-            }
+        // Extract class names
+        const classRegex = /class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?/g;
+        const classes = [];
+        let classMatch;
+        
+        while ((classMatch = classRegex.exec(javaCode)) !== null) {
+            const className = classMatch[1];
+            classes.push({
+                name: className,
+                parent: classMatch[2] || null
+            });
         }
         
-        // Add custom styling directives
-        mermaidCode += `    
-    classDef default fill:#2d2d2d,stroke:#5a7cb6,color:white
-    classDef header fill:#5a7cb6,stroke:#5a7cb6,color:white
-    `;
-        
-        return mermaidCode;
-    }
-    
-    // Helper function to split code into file sections
-    function getFileSections(javaCode) {
-        // If multiple files were uploaded, they're already separate
-        if (uploadedFiles.length > 1) {
-            return uploadedFiles;
-        }
-        
-        // Otherwise try to identify individual classes in the pasted code
-        const fileSections = [];
-        const classMatches = javaCode.matchAll(/(?:public|private|protected)?\s*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?\s*{/g);
-        
-        let lastIndex = 0;
-        let fileName = "Unknown.java";
-        
-        for (const match of classMatches) {
-            const className = match[1];
-            const startIndex = match.index;
+        // Process each class
+        for (const cls of classes) {
+            // Extract variables for this class
+            const classPattern = new RegExp(`class\\s+${cls.name}[^{]*{([^}]*)}`, 's');
+            const classBody = classPattern.exec(javaCode);
             
-            // If this isn't the first class, add the previous one
-            if (lastIndex > 0) {
-                const content = javaCode.substring(lastIndex, startIndex);
-                fileSections.push({
-                    name: fileName,
-                    content: content
+            if (!classBody) continue;
+            
+            // Find variables
+            const variableRegex = /(private|public|protected)?\s*(static)?\s*(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)(?:\s*=\s*[^;]+)?;/g;
+            const variables = [];
+            let variableMatch;
+            
+            while ((variableMatch = variableRegex.exec(classBody[1])) !== null) {
+                const accessMod = variableMatch[1] || '';
+                const isStatic = variableMatch[2] ? true : false;
+                const type = variableMatch[3];
+                const name = variableMatch[4];
+                
+                variables.push({
+                    accessMod,
+                    isStatic,
+                    type,
+                    name
                 });
             }
             
-            lastIndex = startIndex;
-            fileName = `${className}.java`;
-        }
-        
-        // Add the last section
-        if (lastIndex < javaCode.length) {
-            fileSections.push({
-                name: fileName,
-                content: javaCode.substring(lastIndex)
-            });
-        }
-        
-        // If no sections were found, treat it as a single file
-        if (fileSections.length === 0) {
-            fileSections.push({
-                name: "Unknown.java",
-                content: javaCode
-            });
-        }
-        
-        return fileSections;
-    }
-    
-    // Extract variables from class code
-    function extractVariables(classCode) {
-        const variables = [];
-        const variableRegex = /(private|public|protected)\s+(?:final\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)(?:\s*=\s*[^;]+)?;/g;
-        
-        let match;
-        while ((match = variableRegex.exec(classCode)) !== null) {
-            const accessModifier = match[1];
-            const type = match[2];
-            const name = match[3];
+            // Find methods
+            const methodRegex = /(private|public|protected)?\s*(static)?\s*(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)\s*\(([^)]*)\)/g;
+            const methods = [];
+            let methodMatch;
             
-            variables.push({
-                accessModifier: accessModifier,
-                type: type,
-                name: name
-            });
-        }
-        
-        return variables;
-    }
-    
-    // Extract methods from class code
-    function extractMethods(classCode) {
-        const methods = [];
-        // Match method declarations, including their body
-        const methodRegex = /(private|public|protected)\s+(?:static\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)\s*\(([^)]*)\)\s*{([^}]*(?:{[^}]*}[^}]*)*)}/g;
-        
-        let match;
-        while ((match = methodRegex.exec(classCode)) !== null) {
-            const accessModifier = match[1];
-            const returnType = match[2];
-            const name = match[3];
-            const params = match[4];
-            const body = match[5] || '';
+            while ((methodMatch = methodRegex.exec(classBody[1])) !== null) {
+                const accessMod = methodMatch[1] || '';
+                const isStatic = methodMatch[2] ? true : false;
+                const returnType = methodMatch[3];
+                const name = methodMatch[4];
+                const params = methodMatch[5];
+                
+                methods.push({
+                    accessMod,
+                    isStatic,
+                    returnType,
+                    name,
+                    params
+                });
+            }
             
-            methods.push({
-                accessModifier: accessModifier,
-                returnType: returnType,
-                name: name,
-                params: params,
-                body: body
-            });
-        }
-        
-        return methods;
-    }
-    
-    // Extract conditional statements like if/else
-    function extractConditionals(methodBody) {
-        const conditionals = [];
-        
-        // Match if and else if statements
-        const ifRegex = /(?:else\s+)?if\s*\(([^)]+)\)/g;
-        
-        let match;
-        while ((match = ifRegex.exec(methodBody)) !== null) {
-            const condition = match[1].trim();
-            conditionals.push(`${match[0].includes('else') ? 'else if' : 'if'}(${condition})`);
-        }
-        
-        // Match standalone else statements
-        const elseRegex = /else\s*{/g;
-        while ((match = elseRegex.exec(methodBody)) !== null) {
-            conditionals.push('else');
-        }
-        
-        return conditionals;
-    }
-    
-    // Find relationships between classes
-    function findRelationships(classCode, className, otherClasses) {
-        const relationships = [];
-        
-        // Look for instance declarations of other classes
-        for (const otherClass of otherClasses) {
-            if (otherClass === className) continue;
+            // Add class with variables and methods
+            mermaidCode += `    class ${cls.name} {\n`;
             
-            const instanceRegex = new RegExp(`${otherClass}\\s+\\w+\\s*=`, 'g');
-            if (instanceRegex.test(classCode)) {
-                relationships.push(`${className} --> ${otherClass} : uses`);
+            // Add variables
+            if (variables.length > 0) {
+                for (const v of variables) {
+                    const accessSymbol = v.accessMod === 'private' ? '-' : 
+                                       v.accessMod === 'protected' ? '#' : '+';
+                    mermaidCode += `        ${accessSymbol} ${v.name} : ${v.type}\n`;
+                }
+            }
+            
+            // Add methods
+            if (methods.length > 0) {
+                for (const m of methods) {
+                    const accessSymbol = m.accessMod === 'private' ? '-' : 
+                                       m.accessMod === 'protected' ? '#' : '+';
+                    mermaidCode += `        ${accessSymbol} ${m.name}(${m.params}) : ${m.returnType}\n`;
+                }
+            }
+            
+            mermaidCode += '    }\n';
+            
+            // Add inheritance relationship
+            if (cls.parent) {
+                mermaidCode += `    ${cls.name} --|> ${cls.parent}\n`;
             }
         }
         
-        return relationships;
+        // Add associations between classes
+        for (let i = 0; i < classes.length; i++) {
+            const className = classes[i].name;
+            
+            // Look for references to other classes
+            for (let j = 0; j < classes.length; j++) {
+                if (i === j) continue;
+                
+                const otherClass = classes[j].name;
+                const classPattern = new RegExp(`class\\s+${className}[^{]*{([^}]*)}`, 's');
+                const classBody = classPattern.exec(javaCode);
+                
+                if (classBody && (new RegExp(`\\b${otherClass}\\b`)).test(classBody[1])) {
+                    mermaidCode += `    ${className} --> ${otherClass}\n`;
+                }
+            }
+        }
+        
+        return mermaidCode;
     }
 
     function generateFlowchart(javaCode) {
-        // Find class and method declarations
-        const classRegex = /class\s+(\w+)/g;
-        const methodRegex = /(?:public|private|protected)(?:\s+static)?\s+(\w+)\s+(\w+)\s*\(([^)]*)\)/g;
+        // Create a simple flowchart that works reliably with Mermaid 10.5.0
         let flowchart = 'flowchart TD\n';
         
-        // Add class declaration
-        let className = "Unknown";
-        let classMatch = classRegex.exec(javaCode);
-        if (classMatch) {
-            className = classMatch[1];
-            flowchart += `    class[public class ${className}]\n`;
-            flowchart += `    class:::classStyle\n`;
-        }
+        // Find class name
+        const classMatch = javaCode.match(/class\s+(\w+)/);
+        const className = classMatch ? classMatch[1] : "Unknown";
+        
+        // Add main class node
+        flowchart += `    A[public class ${className}]\n`;
         
         // Find main method
-        methodRegex.lastIndex = 0;
-        let methodMatch;
-        while ((methodMatch = methodRegex.exec(javaCode)) !== null) {
-            const returnType = methodMatch[1];
-            const methodName = methodMatch[2];
-            const params = methodMatch[3];
+        const mainMatch = javaCode.match(/public\s+static\s+void\s+main\s*\(\s*String\s*\[\]\s*\w+\s*\)\s*{([^}]*)}/s);
+        
+        if (mainMatch) {
+            const mainBody = mainMatch[1];
             
-            if (methodName === "main") {
-                // Add main method signature
-                flowchart += `    class --> mainSig[public static void main(String]\n`;
-                flowchart += `    mainSig:::codeStyle\n`;
-                flowchart += `    mainSig --> args[args)]\n`;
-                flowchart += `    args:::codeStyle\n`;
+            // Add main method node
+            flowchart += `    A --> B[public static void main(String[] args)]\n`;
+            
+            // Look for for-loops
+            const forLoopMatch = mainBody.match(/for\s*\(([^;]+);([^;]+);([^)]+)\)/);
+            
+            if (forLoopMatch) {
+                const initExpr = forLoopMatch[1].trim();
+                const condExpr = forLoopMatch[2].trim();
                 
-                // Extract method body
-                const methodBodyRegex = new RegExp(`${methodName}\\s*\\([^)]*\\)\\s*{([^}]*(?:{[^}]*})*[^}]*)}`, 'gs');
-                const bodyMatch = methodBodyRegex.exec(javaCode);
+                // Add initialization
+                flowchart += `    B --> C[${initExpr}]\n`;
                 
-                if (bodyMatch) {
-                    const body = bodyMatch[1];
-                    
-                    // Parse for loops specifically for nested loops like in the example
-                    const forLoopRegex = /for\s*\(([^;]+);([^;]+);([^)]+)\)(?:\s*{)?([^}]*(?:{[^}]*})*[^}]*)?(?:})?/gs;
-                    let outerLoopMatch = forLoopRegex.exec(body);
-                    
-                    if (outerLoopMatch) {
-                        const outerInit = outerLoopMatch[1].trim();
-                        const outerCond = outerLoopMatch[2].trim();
-                        const outerIncr = outerLoopMatch[3].trim();
-                        const outerBody = outerLoopMatch[4] || '';
-                        
-                        // Outer loop initialization
-                        flowchart += `    args --> outerInit[${outerInit}]\n`;
-                        flowchart += `    outerInit:::codeStyle\n`;
-                        
-                        // Outer loop condition
-                        flowchart += `    outerInit --> outerCond{${outerCond}}\n`;
-                        flowchart += `    outerCond:::conditionStyle\n`;
-                        
-                        // Find nested loop
-                        forLoopRegex.lastIndex = 0; // Reset regex to search in the outer loop body
-                        let innerLoopMatch = forLoopRegex.exec(outerBody);
-                        
-                        if (innerLoopMatch) {
-                            const innerInit = innerLoopMatch[1].trim();
-                            const innerCond = innerLoopMatch[2].trim();
-                            const innerIncr = innerLoopMatch[3].trim();
-                            const innerBody = innerLoopMatch[4] || '';
-                            
-                            // Inner loop initialization (when outer loop condition is true)
-                            flowchart += `    outerCond -->|True| innerInit[${innerInit}]\n`;
-                            flowchart += `    innerInit:::codeStyle\n`;
-                            
-                            // Inner loop condition
-                            flowchart += `    innerInit --> innerCond{${innerCond}}\n`;
-                            flowchart += `    innerCond:::conditionStyle\n`;
-                            
-                            // Find print statements in inner loop
-                            const printRegex = /System\.out\.println\s*\((.*?)\)/g;
-                            let printMatch = printRegex.exec(innerBody);
-                            
-                            if (printMatch) {
-                                // Print statement (when inner loop condition is true)
-                                flowchart += `    innerCond -->|True| print[System.out.println(${printMatch[1]})]\n`;
-                                flowchart += `    print:::codeStyle\n`;
-                                
-                                // Inner loop increment
-                                flowchart += `    print --> innerIncr[${innerIncr}]\n`;
-                                flowchart += `    innerIncr:::codeStyle\n`;
-                                
-                                // Back to inner condition
-                                flowchart += `    innerIncr --> innerCond\n`;
-                            } else {
-                                // Generic inner loop body
-                                flowchart += `    innerCond -->|True| innerBody[Inner Loop Body]\n`;
-                                flowchart += `    innerBody:::codeStyle\n`;
-                                flowchart += `    innerBody --> innerIncr[${innerIncr}]\n`;
-                                flowchart += `    innerIncr:::codeStyle\n`;
-                                flowchart += `    innerIncr --> innerCond\n`;
-                            }
-                            
-                            // Exit inner loop to outer loop increment
-                            flowchart += `    innerCond -->|False| outerIncr[${outerIncr}]\n`;
-                            flowchart += `    outerIncr:::codeStyle\n`;
-                            
-                            // Back to outer condition
-                            flowchart += `    outerIncr --> outerCond\n`;
-                        } else {
-                            // Simple outer loop without nesting
-                            flowchart += `    outerCond -->|True| outerBody[Loop Body]\n`;
-                            flowchart += `    outerBody:::codeStyle\n`;
-                            flowchart += `    outerBody --> outerIncr[${outerIncr}]\n`;
-                            flowchart += `    outerIncr:::codeStyle\n`;
-                            flowchart += `    outerIncr --> outerCond\n`;
-                        }
-                        
-                        // Exit outer loop
-                        flowchart += `    outerCond -->|False| exit[Exit Loop]\n`;
-                        flowchart += `    exit:::codeStyle\n`;
-                    }
-                }
+                // Add condition check
+                flowchart += `    C --> D{${condExpr}}\n`;
+                
+                // Add paths
+                flowchart += `    D -->|True| E[Loop Body]\n`;
+                flowchart += `    D -->|False| F[Exit Loop]\n`;
+                
+                // Add loop back
+                flowchart += `    E --> G[Update]\n`;
+                flowchart += `    G --> D\n`;
             }
         }
         
-        // Add style definitions to match the image
-        flowchart += `\n    classDef classStyle fill:#d32f2f,stroke:#d32f2f,color:white,rx:25,ry:25\n`;
-        flowchart += `    classDef conditionStyle fill:#d32f2f,stroke:#d32f2f,color:white,shape:diamond\n`;
-        flowchart += `    classDef codeStyle fill:#3949ab,stroke:#3949ab,color:white\n`;
+        // Style the nodes
+        flowchart += `\n    classDef default fill:#3949ab,stroke:#3949ab,color:white\n`;
+        flowchart += `    classDef condition fill:#d32f2f,stroke:#d32f2f,color:white\n`;
+        flowchart += `    class D condition\n`;
         
         return flowchart;
-    }
-
-    // Add custom styling to the generated diagram
-    function applyCustomStyling() {
-        if (!diagramOutput.querySelector('svg')) return;
-        
-        // Apply custom styling to class diagrams
-        if (currentTab === 'class-diagram') {
-            // Apply styling to class diagram elements
-            const classTitles = diagramOutput.querySelectorAll('.classTitle');
-            classTitles.forEach(title => {
-                title.parentElement.classList.add('title-section');
-            });
-            
-            // Style variable and method text for syntax highlighting
-            const classSections = diagramOutput.querySelectorAll('.section');
-            classSections.forEach(section => {
-                const text = section.querySelector('text');
-                if (text) {
-                    const content = text.textContent;
-                    
-                    // Apply syntax highlighting based on content
-                    if (content.includes('String') || content.includes('int') || content.includes('boolean')) {
-                        const formattedContent = content.replace(
-                            /(String|int|char|boolean|double|float|void|static)/g, 
-                            '<tspan class="type">$1</tspan>'
-                        );
-                        text.innerHTML = formattedContent;
-                    }
-                    
-                    if (content.includes('public') || content.includes('private') || content.includes('protected')) {
-                        const formattedContent = text.innerHTML.replace(
-                            /(public|private|protected|if|else)/g, 
-                            '<tspan class="keyword">$1</tspan>'
-                        );
-                        text.innerHTML = formattedContent;
-                    }
-                }
-            });
-        }
     }
 
     function downloadDiagram(format) {
