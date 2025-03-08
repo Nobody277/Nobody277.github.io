@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java Development - Visualize Your Code</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.5.0/mermaid.min.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <i class="fab fa-java"></i>
+                <h1>Java Development</h1>
+            </div>
+            <ul>
+                <li><a href="#" class="active">Home</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li><a href="https://github.com/Nobody277/Nobody277.github.io" target="_blank">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section id="hero">
+            <div class="hero-content">
+                <h1>Visualize Java Code</h1>
+                <p>Generate class diagrams and flowcharts from your Java code easily</p>
+            </div>
+        </section>
+
+        <section id="code-visualizer">
+            <div class="container">
+                <h2>Code Visualizer</h2>
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="class-diagram">Class Diagram</button>
+                    <button class="tab-btn" data-tab="flowchart">Flowchart</button>
+                </div>
+                
+                <div class="code-input-container">
+                    <div class="code-options">
+                        <div class="input-method">
+                            <label>
+                                <input type="radio" name="input-method" value="paste" checked>
+                                Paste Code
+                            </label>
+                            <label>
+                                <input type="radio" name="input-method" value="upload">
+                                Upload Files
+                            </label>
+                        </div>
+
+                        <button id="generate-btn">Generate Diagram</button>
+                    </div>
+                    
+                    <div id="paste-container">
+                        <textarea id="java-code" placeholder="Paste your Java code here..."></textarea>
+                    </div>
+                    
+                    <div id="upload-container" style="display: none;">
+                        <div class="file-upload-area">
+                            <input type="file" id="file-upload" accept=".java" multiple>
+                            <label for="file-upload">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>Drop Java files here or click to upload</span>
+                            </label>
+                        </div>
+                        <div id="file-list" class="file-list"></div>
+                    </div>
+                </div>
+                
+                <div class="result-container">
+                    <div class="result-header">
+                        <h3>Generated Diagram</h3>
+                        <div class="download-options">
+                            <button id="download-svg-btn" disabled>Download SVG</button>
+                            <button id="download-png-btn" disabled>Download PNG</button>
+                        </div>
+                    </div>
+                    <div id="diagram-output"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="about">
+            <div class="container">
+                <h2>About This Tool</h2>
+                <p>This tool helps Java developers visualize their code structure through class diagrams and flowcharts. Simply paste your Java code or upload one or more Java files to get instant visual representations of your code.</p>
+                
+                <div class="features">
+                    <div class="feature">
+                        <i class="fas fa-project-diagram"></i>
+                        <h3>Class Diagrams</h3>
+                        <p>Visualize classes, attributes, methods, and relationships across multiple files</p>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-code-branch"></i>
+                        <h3>Flowcharts</h3>
+                        <p>Understand method logic and program flow</p>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-download"></i>
+                        <h3>Export</h3>
+                        <p>Download diagrams as SVG or PNG for documentation</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact">
+            <div class="container">
+                <h2>Contact</h2>
+                <p>Have questions or suggestions? Reach out via GitHub issues or pull requests.</p>
+                <a href="https://github.com/Nobody277/Nobody277.github.io/issues" class="btn" target="_blank">Open an Issue</a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Java Development. Powered by <a href="https://pages.github.com/" target="_blank">GitHub Pages</a>.</p>
+        </div>
+    </footer>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
