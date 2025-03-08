@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Mermaid
+    // Initialize Mermaid with custom settings
     mermaid.initialize({
-        startOnLoad: true,
+        startOnLoad: false,  // We'll manually initialize it
         theme: 'dark',
         securityLevel: 'loose',
         flowchart: {
@@ -17,6 +17,9 @@ document.addEventListener('DOMContentLoaded', function() {
             lineColor: '#ffffff',
             secondaryColor: '#d32f2f',
             tertiaryColor: '#2a2a2a'
+        },
+        classDiagram: {
+            useMaxWidth: true
         }
     });
 
@@ -27,6 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const uploadContainer = document.getElementById('upload-container');
     const javaCodeTextarea = document.getElementById('java-code');
     const fileUpload = document.getElementById('file-upload');
+    const fileList = document.getElementById('file-list');
     const generateBtn = document.getElementById('generate-btn');
     const diagramOutput = document.getElementById('diagram-output');
     const downloadSvgBtn = document.getElementById('download-svg-btn');
@@ -34,6 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Current state
     let currentTab = 'class-diagram';
+    let uploadedFiles = [];
 
     // Event Listeners
     tabButtons.forEach(button => {
@@ -56,16 +61,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    fileUpload.addEventListener('change', function(event) {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                javaCodeTextarea.value = e.target.result;
-            };
-            reader.readAsText(file);
-        }
-    });
+    // Handle file uploads
+    fileUpload.addEventListener('change', handleFileUpload);
 
     generateBtn.addEventListener('click', generateDiagram);
     
@@ -77,13 +74,89 @@ document.addEventListener('DOMContentLoaded', function() {
         downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
     }
 
+    // File upload handler
+    function handleFileUpload(event) {
+        const files = event.target.files;
+        
+        if (files.length > 0) {
+            Array.from(files).forEach(file => {
+                if (file.name.endsWith('.java')) {
+                    // Read file content
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const fileContent = e.target.result;
+                        
+                        // Add to uploadedFiles array
+                        uploadedFiles.push({
+                            name: file.name,
+                            content: fileContent
+                        });
+                        
+                        // Update file list UI
+                        updateFileList();
+                    };
+                    reader.readAsText(file);
+                }
+            });
+        }
+    }
+
+    // Update the file list display
+    function updateFileList() {
+        // Clear existing list
+        fileList.innerHTML = '';
+        
+        // Add each file to the list
+        uploadedFiles.forEach((file, index) => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            
+            const fileName = document.createElement('div');
+            fileName.className = 'file-item-name';
+            fileName.innerHTML = `<i class="fas fa-file-code"></i> ${file.name}`;
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'file-item-remove';
+            removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+            removeBtn.addEventListener('click', () => {
+                uploadedFiles.splice(index, 1);
+                updateFileList();
+            });
+            
+            fileItem.appendChild(fileName);
+            fileItem.appendChild(removeBtn);
+            fileList.appendChild(fileItem);
+        });
+    }
+
     // Functions
     function generateDiagram() {
-        const javaCode = javaCodeTextarea.value.trim();
+        let javaCode = '';
         
-        if (!javaCode) {
-            alert('Please enter Java code or upload a file.');
-            return;
+        // Get code based on selected input method
+        const isPasteMethod = document.querySelector('input[name="input-method"]:checked').value === 'paste';
+        
+        if (isPasteMethod) {
+            javaCode = javaCodeTextarea.value.trim();
+            
+            if (!javaCode) {
+                alert('Please enter Java code or upload a file.');
+                return;
+            }
+        } else {
+            if (uploadedFiles.length === 0) {
+                alert('Please upload at least one Java file.');
+                return;
+            }
+            
+            // Concatenate all file contents (for flowcharts, we'll use the first file)
+            if (currentTab === 'class-diagram') {
+                // For class diagrams, we'll analyze all files together
+                javaCode = uploadedFiles.map(file => file.content).join('\n\n');
+            } else {
+                // For flowcharts, just use the first file
+                javaCode = uploadedFiles[0].content;
+            }
         }
 
         try {
@@ -101,6 +174,9 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 mermaid.init(undefined, document.querySelectorAll('.mermaid'));
                 
+                // Add syntax highlighting classes
+                applyCustomStyling();
+                
                 // Only enable download buttons if diagram was successfully generated
                 if (diagramOutput.querySelector('svg')) {
                     if (downloadSvgBtn) downloadSvgBtn.disabled = false;
@@ -109,81 +185,224 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error("SVG diagram was not created");
                 }
             } catch (mermaidError) {
+                console.error("Mermaid error:", mermaidError);
                 handleError("Mermaid diagram generation failed", mermaidError);
             }
         } catch (error) {
+            console.error("Generation error:", error);
             handleError("Error generating diagram", error);
         }
     }
 
     function generateClassDiagram(javaCode) {
-        const classRegex = /class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?/g;
-        const fieldRegex = /(private|public|protected)\s+(?:final\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)(?:\s*=\s*[^;]+)?;/g;
-        const methodRegex = /(private|public|protected)\s+(?:static\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)\s*\(([^)]*)\)/g;
-
-        let classMatch;
-        let classes = [];
-        let relationships = [];
-
-        while ((classMatch = classRegex.exec(javaCode)) !== null) {
-            const className = classMatch[1];
-            const parentClass = classMatch[2];
-            const interfaces = classMatch[3];
-            
-            // Track class for diagram
-            classes.push(className);
-            
-            // Track inheritance relationship
-            if (parentClass) {
-                relationships.push(`${className} --|> ${parentClass} : extends`);
-            }
-            
-            // Track interface implementations
-            if (interfaces) {
-                const interfaceList = interfaces.split(',').map(i => i.trim());
-                interfaceList.forEach(intf => {
-                    relationships.push(`${className} ..|> ${intf} : implements`);
-                });
-            }
-        }
-
-        // Build the class diagram in Mermaid syntax
+        // Split multiple files by looking for class declarations
+        const files = getFileSections(javaCode);
+        
+        // Create a more structured class diagram
         let mermaidCode = 'classDiagram\n';
-
-        // Add classes with fields and methods
-        for (const className of classes) {
+        let processedClasses = [];
+        
+        // Process each file
+        for (const file of files) {
+            const fileContent = file.content;
+            
+            // Extract class name
+            const classNameMatch = fileContent.match(/class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?/);
+            if (!classNameMatch) continue;
+            
+            const className = classNameMatch[1];
+            const parentClass = classNameMatch[2] || null;
+            
+            // Skip if already processed
+            if (processedClasses.includes(className)) continue;
+            processedClasses.push(className);
+            
+            // Add class to diagram
             mermaidCode += `    class ${className} {\n`;
             
-            // Reset regex lastIndex
-            fieldRegex.lastIndex = 0;
-            methodRegex.lastIndex = 0;
-            
-            let fieldMatch;
-            while ((fieldMatch = fieldRegex.exec(javaCode)) !== null) {
-                const visibility = fieldMatch[1] === 'private' ? '-' : (fieldMatch[1] === 'protected' ? '#' : '+');
-                const type = fieldMatch[2];
-                const name = fieldMatch[3];
-                mermaidCode += `        ${visibility} ${name} : ${type}\n`;
+            // Find and add variables section
+            const variables = extractVariables(fileContent);
+            if (variables.length > 0) {
+                mermaidCode += `        Variables\n`;
+                for (const variable of variables) {
+                    mermaidCode += `        ${variable.type} ${variable.name}\n`;
+                }
+            } else {
+                mermaidCode += `        No variables\n`;
             }
             
-            let methodMatch;
-            while ((methodMatch = methodRegex.exec(javaCode)) !== null) {
-                const visibility = methodMatch[1] === 'private' ? '-' : (methodMatch[1] === 'protected' ? '#' : '+');
-                const returnType = methodMatch[2];
-                const name = methodMatch[3];
-                const params = methodMatch[4];
-                mermaidCode += `        ${visibility} ${name}(${params}) : ${returnType}\n`;
+            // Find and add methods section
+            const methods = extractMethods(fileContent);
+            if (methods.length > 0) {
+                mermaidCode += `        Methods\n`;
+                for (const method of methods) {
+                    mermaidCode += `        ${method.accessModifier} ${method.returnType} ${method.name}(${method.params})\n`;
+                    
+                    // Add conditional statements if present
+                    const conditionals = extractConditionals(method.body);
+                    for (const cond of conditionals) {
+                        mermaidCode += `        ${cond}\n`;
+                    }
+                }
             }
             
-            mermaidCode += '    }\n';
+            mermaidCode += `    }\n`;
+            
+            // Add inheritance if exists
+            if (parentClass) {
+                mermaidCode += `    ${className} --|> ${parentClass}\n`;
+            }
+            
+            // Add relationships with other classes
+            const relationships = findRelationships(fileContent, className, processedClasses);
+            for (const rel of relationships) {
+                mermaidCode += `    ${rel}\n`;
+            }
         }
-
-        // Add relationships
-        relationships.forEach(rel => {
-            mermaidCode += `    ${rel}\n`;
-        });
-
+        
+        // Add custom styling directives
+        mermaidCode += `    
+    classDef default fill:#2d2d2d,stroke:#5a7cb6,color:white
+    classDef header fill:#5a7cb6,stroke:#5a7cb6,color:white
+    `;
+        
         return mermaidCode;
+    }
+    
+    // Helper function to split code into file sections
+    function getFileSections(javaCode) {
+        // If multiple files were uploaded, they're already separate
+        if (uploadedFiles.length > 1) {
+            return uploadedFiles;
+        }
+        
+        // Otherwise try to identify individual classes in the pasted code
+        const fileSections = [];
+        const classMatches = javaCode.matchAll(/(?:public|private|protected)?\s*class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?\s*{/g);
+        
+        let lastIndex = 0;
+        let fileName = "Unknown.java";
+        
+        for (const match of classMatches) {
+            const className = match[1];
+            const startIndex = match.index;
+            
+            // If this isn't the first class, add the previous one
+            if (lastIndex > 0) {
+                const content = javaCode.substring(lastIndex, startIndex);
+                fileSections.push({
+                    name: fileName,
+                    content: content
+                });
+            }
+            
+            lastIndex = startIndex;
+            fileName = `${className}.java`;
+        }
+        
+        // Add the last section
+        if (lastIndex < javaCode.length) {
+            fileSections.push({
+                name: fileName,
+                content: javaCode.substring(lastIndex)
+            });
+        }
+        
+        // If no sections were found, treat it as a single file
+        if (fileSections.length === 0) {
+            fileSections.push({
+                name: "Unknown.java",
+                content: javaCode
+            });
+        }
+        
+        return fileSections;
+    }
+    
+    // Extract variables from class code
+    function extractVariables(classCode) {
+        const variables = [];
+        const variableRegex = /(private|public|protected)\s+(?:final\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)(?:\s*=\s*[^;]+)?;/g;
+        
+        let match;
+        while ((match = variableRegex.exec(classCode)) !== null) {
+            const accessModifier = match[1];
+            const type = match[2];
+            const name = match[3];
+            
+            variables.push({
+                accessModifier: accessModifier,
+                type: type,
+                name: name
+            });
+        }
+        
+        return variables;
+    }
+    
+    // Extract methods from class code
+    function extractMethods(classCode) {
+        const methods = [];
+        // Match method declarations, including their body
+        const methodRegex = /(private|public|protected)\s+(?:static\s+)?(\w+(?:<[\w<>,\s]+>)?)\s+(\w+)\s*\(([^)]*)\)\s*{([^}]*(?:{[^}]*}[^}]*)*)}/g;
+        
+        let match;
+        while ((match = methodRegex.exec(classCode)) !== null) {
+            const accessModifier = match[1];
+            const returnType = match[2];
+            const name = match[3];
+            const params = match[4];
+            const body = match[5] || '';
+            
+            methods.push({
+                accessModifier: accessModifier,
+                returnType: returnType,
+                name: name,
+                params: params,
+                body: body
+            });
+        }
+        
+        return methods;
+    }
+    
+    // Extract conditional statements like if/else
+    function extractConditionals(methodBody) {
+        const conditionals = [];
+        
+        // Match if and else if statements
+        const ifRegex = /(?:else\s+)?if\s*\(([^)]+)\)/g;
+        
+        let match;
+        while ((match = ifRegex.exec(methodBody)) !== null) {
+            const condition = match[1].trim();
+            conditionals.push(`${match[0].includes('else') ? 'else if' : 'if'}(${condition})`);
+        }
+        
+        // Match standalone else statements
+        const elseRegex = /else\s*{/g;
+        while ((match = elseRegex.exec(methodBody)) !== null) {
+            conditionals.push('else');
+        }
+        
+        return conditionals;
+    }
+    
+    // Find relationships between classes
+    function findRelationships(classCode, className, otherClasses) {
+        const relationships = [];
+        
+        // Look for instance declarations of other classes
+        for (const otherClass of otherClasses) {
+            if (otherClass === className) continue;
+            
+            const instanceRegex = new RegExp(`${otherClass}\\s+\\w+\\s*=`, 'g');
+            if (instanceRegex.test(classCode)) {
+                relationships.push(`${className} --> ${otherClass} : uses`);
+            }
+        }
+        
+        return relationships;
     }
 
     function generateFlowchart(javaCode) {
@@ -314,6 +533,46 @@ document.addEventListener('DOMContentLoaded', function() {
         return flowchart;
     }
 
+    // Add custom styling to the generated diagram
+    function applyCustomStyling() {
+        if (!diagramOutput.querySelector('svg')) return;
+        
+        // Apply custom styling to class diagrams
+        if (currentTab === 'class-diagram') {
+            // Apply styling to class diagram elements
+            const classTitles = diagramOutput.querySelectorAll('.classTitle');
+            classTitles.forEach(title => {
+                title.parentElement.classList.add('title-section');
+            });
+            
+            // Style variable and method text for syntax highlighting
+            const classSections = diagramOutput.querySelectorAll('.section');
+            classSections.forEach(section => {
+                const text = section.querySelector('text');
+                if (text) {
+                    const content = text.textContent;
+                    
+                    // Apply syntax highlighting based on content
+                    if (content.includes('String') || content.includes('int') || content.includes('boolean')) {
+                        const formattedContent = content.replace(
+                            /(String|int|char|boolean|double|float|void|static)/g, 
+                            '<tspan class="type">$1</tspan>'
+                        );
+                        text.innerHTML = formattedContent;
+                    }
+                    
+                    if (content.includes('public') || content.includes('private') || content.includes('protected')) {
+                        const formattedContent = text.innerHTML.replace(
+                            /(public|private|protected|if|else)/g, 
+                            '<tspan class="keyword">$1</tspan>'
+                        );
+                        text.innerHTML = formattedContent;
+                    }
+                }
+            });
+        }
+    }
+
     function downloadDiagram(format) {
         const svgElement = diagramOutput.querySelector('svg');
         if (!svgElement) {
@@ -402,11 +661,32 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add initial example code to help users get started
         javaCodeTextarea.value = `public class Main {
     public static void main(String[] args) {
-        for (int i = 1; i <= 3; i++) {
-            for (int j = 1; j <= 3; j++) {
-                System.out.println("i: " + i + ", j: " + j);
-            }
+        // Create a new student
+        Student student = new Student();
+        student.name = "John Doe";
+        student.course = "Computer Science";
+        student.numericalScore = 85;
+        student.printGrade();
+    }
+}
+
+class Student {
+    String name;
+    String course;
+    int numericalScore;
+    char grade;
+    
+    public void printGrade() {
+        if (numericalScore >= 80) {
+            grade = 'A';
+        } else if (numericalScore >= 70) {
+            grade = 'B';
+        } else if (numericalScore >= 60) {
+            grade = 'C';
+        } else {
+            grade = 'F';
         }
+        System.out.println(name + " got a " + grade + " in " + course);
     }
 }`;
         
