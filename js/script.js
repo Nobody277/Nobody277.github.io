@@ -25,15 +25,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputRadios = document.querySelectorAll('input[name="input-method"]');
     const pasteContainer = document.getElementById('paste-container');
     const uploadContainer = document.getElementById('upload-container');
-    const codeEditorContainer = document.getElementById('code-editor-container');
+    const javaCodeTextarea = document.getElementById('java-code');
     const fileUpload = document.getElementById('file-upload');
     const generateBtn = document.getElementById('generate-btn');
     const diagramOutput = document.getElementById('diagram-output');
     const downloadSvgBtn = document.getElementById('download-svg-btn');
     const downloadPngBtn = document.getElementById('download-png-btn');
-    
-    // Initialize CodeMirror
-    let codeEditor;
 
     // Current state
     let currentTab = 'class-diagram';
@@ -64,21 +61,25 @@ document.addEventListener('DOMContentLoaded', function() {
         if (file) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                codeEditor.setValue(e.target.result);
-                // Set focus back to the editor
-                codeEditor.focus();
+                javaCodeTextarea.value = e.target.result;
             };
             reader.readAsText(file);
         }
     });
 
     generateBtn.addEventListener('click', generateDiagram);
-    downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
-    downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
+    
+    if (downloadSvgBtn) {
+        downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
+    }
+    
+    if (downloadPngBtn) {
+        downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
+    }
 
     // Functions
     function generateDiagram() {
-        const javaCode = codeEditor.getValue().trim();
+        const javaCode = javaCodeTextarea.value.trim();
         
         if (!javaCode) {
             alert('Please enter Java code or upload a file.');
@@ -111,9 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 handleError("Mermaid diagram generation failed", mermaidError);
             }
         } catch (error) {
-            diagramOutput.innerHTML = `<div class="error">Error generating diagram: ${error.message}</div>`;
-            downloadSvgBtn.disabled = true;
-            downloadPngBtn.disabled = true;
+            handleError("Error generating diagram", error);
         }
     }
 
@@ -357,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             img.onload = function() {
                 // Draw image to canvas
-                context.fillStyle = 'white';
+                context.fillStyle = '#1e1e1e'; // Match background color
                 context.fillRect(0, 0, canvas.width, canvas.height);
                 context.drawImage(img, 0, 0, svgWidth, svgHeight);
                 
@@ -388,32 +387,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Initialize UI elements
-    function initializeUI() {
-        // Initialize CodeMirror
-        codeEditor = CodeMirror(codeEditorContainer, {
-            mode: "text/x-java",
-            theme: "dracula",
-            lineNumbers: true,
-            matchBrackets: true,
-            indentUnit: 4,
-            smartIndent: true,
-            indentWithTabs: true,
-            extraKeys: {
-                "Tab": function(cm) {
-                    if (cm.somethingSelected()) {
-                        cm.indentSelection("add");
-                    } else {
-                        cm.replaceSelection("    ", "end", "+input");
-                    }
-                }
-            },
-            autoCloseBrackets: true,
-            autoRefresh: true
-        });
+    // Error handling function
+    function handleError(message, error) {
+        console.error(message, error);
+        diagramOutput.innerHTML = `<div class="error-message">${message}: ${error.message}</div>`;
+        
+        // Safely disable buttons
+        if (downloadSvgBtn) downloadSvgBtn.disabled = true;
+        if (downloadPngBtn) downloadPngBtn.disabled = true;
+    }
 
+    // Initialize UI
+    function initializeUI() {
         // Add initial example code to help users get started
-        codeEditor.setValue(`public class Main {
+        javaCodeTextarea.value = `public class Main {
     public static void main(String[] args) {
         for (int i = 1; i <= 3; i++) {
             for (int j = 1; j <= 3; j++) {
@@ -421,19 +408,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
-}`);
+}`;
         
         // Make sure download buttons are disabled initially
-        if (downloadSvgBtn) downloadSvgBtn.disabled = true;
-        if (downloadPngBtn) downloadPngBtn.disabled = true;
-    }
-
-    // Error handling function
-    function handleError(message, error) {
-        console.error(message, error);
-        diagramOutput.innerHTML = `<div class="error-message">${message}: ${error.message}</div>`;
-        
-        // Safely disable buttons
         if (downloadSvgBtn) downloadSvgBtn.disabled = true;
         if (downloadPngBtn) downloadPngBtn.disabled = true;
     }
