@@ -6,12 +6,7 @@
     <title>Java Development - Visualize Your Code</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/theme/dracula.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.5.0/mermaid.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/mode/clike/clike.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/addon/edit/matchbrackets.min.js"></script>
 </head>
 <body>
     <header>
@@ -54,7 +49,7 @@
                             </label>
                             <label>
                                 <input type="radio" name="input-method" value="upload">
-                                Upload File
+                                Upload Files
                             </label>
                         </div>
 
@@ -66,7 +61,14 @@
                     </div>
                     
                     <div id="upload-container" style="display: none;">
-                        <input type="file" id="file-upload" accept=".java">
+                        <div class="file-upload-area">
+                            <input type="file" id="file-upload" accept=".java" multiple>
+                            <label for="file-upload">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>Drop Java files here or click to upload</span>
+                            </label>
+                        </div>
+                        <div id="file-list" class="file-list"></div>
                     </div>
                 </div>
                 
@@ -86,13 +88,13 @@
         <section id="about">
             <div class="container">
                 <h2>About This Tool</h2>
-                <p>This tool helps Java developers visualize their code structure through class diagrams and flowcharts. Simply paste your Java code or upload a file, and get an instant visual representation of your code.</p>
+                <p>This tool helps Java developers visualize their code structure through class diagrams and flowcharts. Simply paste your Java code or upload one or more Java files to get instant visual representations of your code.</p>
                 
                 <div class="features">
                     <div class="feature">
                         <i class="fas fa-project-diagram"></i>
                         <h3>Class Diagrams</h3>
-                        <p>Visualize classes, attributes, methods, and relationships</p>
+                        <p>Visualize classes, attributes, methods, and relationships across multiple files</p>
                     </div>
                     <div class="feature">
                         <i class="fas fa-code-branch"></i>
