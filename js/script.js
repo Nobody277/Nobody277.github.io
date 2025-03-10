@@ -1,3 +1,24 @@
+// Load additional script files
+function loadScript(url) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+        document.head.appendChild(script);
+    });
+}
+
+// Load all required scripts before initializing
+Promise.all([
+    loadScript('js/class-diagram.js'),
+    loadScript('js/flowchart.js')
+]).then(() => {
+    console.log('All diagram scripts loaded successfully');
+}).catch(error => {
+    console.error('Error loading diagram scripts:', error);
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     // Elements
     const tabBtns = document.querySelectorAll('.tab-btn');
@@ -8,6 +29,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const downloadBtn = document.getElementById('download-png-btn');
     const javaCodeTextarea = document.getElementById('java-code');
     const diagramOutput = document.getElementById('diagram-output');
+    
+    // Initialize diagram generators
+    let classDiagramGenerator;
+    let flowchartGenerator;
+    
+    // Initialize after a short delay to ensure scripts are loaded
+    setTimeout(() => {
+        try {
+            classDiagramGenerator = new ClassDiagramGenerator();
+            flowchartGenerator = new FlowchartGenerator();
+            console.log('Diagram generators initialized successfully');
+        } catch (error) {
+            console.error('Error initializing diagram generators:', error);
+        }
+    }, 500);
     
     // Initialize variables to track state
     let selectedFiles = [];
@@ -105,26 +141,86 @@ document.addEventListener('DOMContentLoaded', function() {
         diagramOutput.innerHTML = '';
         diagramOutput.classList.add('loading');
         
-        // Simulate diagram generation (you would replace this with actual implementation)
+        // Get the input code or files
+        const code = javaCodeTextarea.value.trim();
+        
+        // Process based on current tab and input type
         setTimeout(() => {
             diagramOutput.classList.remove('loading');
             
-            let message = '';
-            if (currentTab === 'class-diagram') {
-                message = '<div style="text-align: center;"><i class="fas fa-project-diagram" style="font-size: 4rem; color: var(--primary-color); margin-bottom: 1rem;"></i><p>Class diagram generated successfully.</p></div>';
-            } else {
-                message = '<div style="text-align: center;"><i class="fas fa-code-branch" style="font-size: 4rem; color: var(--primary-color); margin-bottom: 1rem;"></i><p>Flowchart generated successfully.</p></div>';
+            try {
+                if (currentTab === 'class-diagram') {
+                    if (classDiagramGenerator) {
+                        if (code) {
+                            classDiagramGenerator.parseCode(code);
+                        } else if (selectedFiles.length > 0) {
+                            classDiagramGenerator.parseFiles(selectedFiles);
+                        }
+                        classDiagramGenerator.generateDiagram();
+                        classDiagramGenerator.renderDiagram(diagramOutput);
+                    } else {
+                        throw new Error('Class diagram generator not initialized');
+                    }
+                } else {
+                    if (flowchartGenerator) {
+                        if (code) {
+                            flowchartGenerator.parseCode(code);
+                        } else if (selectedFiles.length > 0) {
+                            flowchartGenerator.parseFiles(selectedFiles);
+                        }
+                        flowchartGenerator.generateFlowchart();
+                        flowchartGenerator.renderFlowchart(diagramOutput);
+                    } else {
+                        throw new Error('Flowchart generator not initialized');
+                    }
+                }
+                
+                downloadBtn.disabled = false;
+            } catch (error) {
+                console.error('Error generating diagram:', error);
+                diagramOutput.innerHTML = `
+                    <div style="text-align: center; color: var(--danger-color);">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <p>Error generating diagram: ${error.message}</p>
+                    </div>
+                `;
             }
-            
-            diagramOutput.innerHTML = message;
-            downloadBtn.disabled = false;
         }, 1500);
     });
     
     // Download button
     downloadBtn.addEventListener('click', function() {
-        alert('Download functionality would be implemented here.');
-        // In a real implementation, you would generate and download a PNG file
+        if (currentTab === 'class-diagram' && classDiagramGenerator) {
+            classDiagramGenerator.exportAsPNG()
+                .then(result => {
+                    if (result.success) {
+                        // This would be replaced with actual download code
+                        alert('Class diagram download: ' + result.message);
+                    } else {
+                        alert('Error: ' + result.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Export error:', error);
+                    alert('Error exporting diagram: ' + error.message);
+                });
+        } else if (currentTab === 'flowchart' && flowchartGenerator) {
+            flowchartGenerator.exportAsPNG()
+                .then(result => {
+                    if (result.success) {
+                        // This would be replaced with actual download code
+                        alert('Flowchart download: ' + result.message);
+                    } else {
+                        alert('Error: ' + result.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Export error:', error);
+                    alert('Error exporting flowchart: ' + error.message);
+                });
+        } else {
+            alert('Diagram generator not initialized');
+        }
     });
     
     // Allow drag and drop file upload
