@@ -29,7 +29,7 @@
 
     <main id="main-content">
         <!-- Hero Section -->
-        <section id="hero" aria-labelledby="hero-heading">
+        <section id="hero" aria-labelledby="hero-heading" class="animated-gradient">
             <div class="hero-content">
                 <h1 id="hero-heading">Visualize Java Code</h1>
                 <p>Generate class diagrams and flowcharts from your Java code easily</p>
@@ -47,38 +47,21 @@
                 
                 <div class="code-input-container">
                     <div class="code-options">
-                        <fieldset class="input-method">
-                            <legend class="sr-only">Choose input method</legend>
-                            <label for="paste-method">
-                                <input type="radio" id="paste-method" name="input-method" value="paste" checked>
-                                Paste Code
-                            </label>
-                            <label for="upload-method">
-                                <input type="radio" id="upload-method" name="input-method" value="upload">
-                                Upload Files
-                            </label>
-                        </fieldset>
-
+                        <button id="upload-btn" type="button" class="upload-button">
+                            <i class="fas fa-upload" aria-hidden="true"></i> Upload Files
+                        </button>
+                        <input type="file" id="file-upload" accept=".java" multiple class="hidden-upload" aria-describedby="upload-instructions">
+                        
                         <button id="generate-btn" type="button">Generate Diagram</button>
                     </div>
                     
                     <div id="paste-container">
-                        <label for="java-code" class="sr-only">Java code input</label>
+                        <label for="java-code">Java code input</label>
                         <textarea id="java-code" placeholder="Paste your Java code here..." aria-describedby="paste-instructions"></textarea>
                         <p id="paste-instructions" class="sr-only">Paste your Java code in the textarea above to generate a diagram</p>
                     </div>
                     
-                    <div id="upload-container" style="display: none;">
-                        <div class="file-upload-area">
-                            <input type="file" id="file-upload" accept=".java" multiple aria-describedby="upload-instructions">
-                            <label for="file-upload">
-                                <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
-                                <span>Drop Java files here or click to upload</span>
-                            </label>
-                        </div>
-                        <p id="upload-instructions" class="sr-only">Upload one or more Java files to generate a diagram</p>
-                        <div id="file-list" class="file-list" aria-live="polite"></div>
-                    </div>
+                    <div id="file-list" class="file-list" aria-live="polite"></div>
                 </div>
                 
                 <div class="result-container">
