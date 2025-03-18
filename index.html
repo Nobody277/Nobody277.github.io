@@ -1,125 +1,211 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Generate class diagrams and flowcharts from your Java code easily. Visualize your Java code structure.">
-    <title>Java Development - Visualize Your Code</title>
-    <link rel="stylesheet" href="css/styles.css">
-    <!-- Preconnect to CDN for faster loading -->
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Generate class diagrams and flowcharts from your Java code easily. Visualize your Java code structure.">
+  <title>Java Development - Visualize Your Code</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/flowchart.css">
+  <!-- Preconnect to CDN for faster loading -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
-    <!-- Header Navigation -->
-    <header>
-        <nav aria-label="Main navigation">
-            <div class="logo">
-                <i class="fab fa-java" aria-hidden="true"></i>
-                <h1>Java Development</h1>
-            </div>
-            <ul>
-                <li><a href="#" class="active" aria-current="page">Home</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-                <li><a href="https://github.com/Nobody277/Nobody277.github.io" target="_blank" rel="noopener noreferrer">GitHub <span class="sr-only">(opens in a new tab)</span></a></li>
-            </ul>
-        </nav>
-    </header>
+  <!-- Header Navigation -->
+  <header>
+    <nav aria-label="Main navigation">
+      <div class="logo">
+        <i class="fab fa-java" aria-hidden="true"></i>
+        <h1>Java Development</h1>
+      </div>
+      <ul>
+        <li><a href="#" class="active" aria-current="page">Home</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="https://github.com/Nobody277/Nobody277.github.io" target="_blank" rel="noopener noreferrer">GitHub <span class="sr-only">(opens in a new tab)</span></a></li>
+      </ul>
+    </nav>
+  </header>
 
-    <main id="main-content">
-        <!-- Hero Section -->
-        <section id="hero" aria-labelledby="hero-heading" class="animated-gradient">
-            <div class="hero-content">
-                <h1 id="hero-heading">Visualize Java Code</h1>
-                <p>Generate class diagrams and flowcharts from your Java code easily</p>
-            </div>
-        </section>
+  <main id="main-content">
+    <!-- Hero Section -->
+    <section id="hero" aria-labelledby="hero-heading" class="animated-gradient">
+      <div class="hero-content">
+        <h1 id="hero-heading">Visualize Java Code</h1>
+        <p>Generate class diagrams and flowcharts from your Java code easily</p>
+      </div>
+    </section>
 
-        <!-- Code Visualizer Tool -->
-        <section id="code-visualizer" aria-labelledby="visualizer-heading">
-            <div class="container">
-                <h2 id="visualizer-heading">Code Visualizer</h2>
-                <div class="tabs" role="tablist">
-                    <button class="tab-btn active" id="tab-class-diagram" data-tab="class-diagram" role="tab" aria-selected="true" aria-controls="class-diagram-panel">Class Diagram</button>
-                    <button class="tab-btn" id="tab-flowchart" data-tab="flowchart" role="tab" aria-selected="false" aria-controls="flowchart-panel">Flowchart</button>
-                </div>
-                
-                <div class="code-input-container">
-                    <div class="code-options">
-                        <button id="upload-btn" type="button" class="upload-button">
-                            <i class="fas fa-upload" aria-hidden="true"></i> Upload Files
-                        </button>
-                        <input type="file" id="file-upload" accept=".java" multiple class="hidden-upload" aria-describedby="upload-instructions">
-                        
-                        <button id="generate-btn" type="button">Generate Diagram</button>
-                    </div>
-                    
-                    <div id="paste-container">
-                        <label for="java-code">Java code input</label>
-                        <textarea id="java-code" placeholder="Paste your Java code here..." aria-describedby="paste-instructions"></textarea>
-                        <p id="paste-instructions" class="sr-only">Paste your Java code in the textarea above to generate a diagram</p>
-                    </div>
-                    
-                    <div id="file-list" class="file-list" aria-live="polite"></div>
-                </div>
-                
-                <div class="result-container">
-                    <div class="result-header">
-                        <h3>Generated Diagram</h3>
-                        <div class="download-options">
-                            <button id="download-png-btn" type="button" disabled>Download PNG</button>
-                        </div>
-                    </div>
-                    <div id="diagram-output" role="region" aria-label="Diagram output" aria-live="polite"></div>
-                </div>
-            </div>
-        </section>
-
-        <!-- About Section -->
-        <section id="about" aria-labelledby="about-heading">
-            <div class="container">
-                <h2 id="about-heading">About This Tool</h2>
-                <p>This tool helps Java developers visualize their code structure through class diagrams and flowcharts. Simply paste your Java code or upload one or more Java files to get instant visual representations of your code.</p>
-                
-                <div class="features">
-                    <div class="feature">
-                        <i class="fas fa-project-diagram" aria-hidden="true"></i>
-                        <h3>Class Diagrams</h3>
-                        <p>Visualize classes, attributes, methods, and relationships across multiple files</p>
-                    </div>
-                    <div class="feature">
-                        <i class="fas fa-code-branch" aria-hidden="true"></i>
-                        <h3>Flowcharts</h3>
-                        <p>Understand method logic and program flow</p>
-                    </div>
-                    <div class="feature">
-                        <i class="fas fa-download" aria-hidden="true"></i>
-                        <h3>Export</h3>
-                        <p>Download diagrams as PNG for documentation</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Contact Section -->
-        <section id="contact" aria-labelledby="contact-heading">
-            <div class="container">
-                <h2 id="contact-heading">Contact</h2>
-                <p>Have questions or suggestions? Reach out via GitHub issues or pull requests.</p>
-                <a href="https://github.com/Nobody277/Nobody277.github.io/issues" class="btn" target="_blank" rel="noopener noreferrer">Open an Issue <span class="sr-only">(opens in a new tab)</span></a>
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 Java Development. Powered by <a href="https://pages.github.com/" target="_blank" rel="noopener noreferrer">GitHub Pages <span class="sr-only">(opens in a new tab)</span></a>.</p>
+    <!-- Code Visualizer Tool -->
+    <section id="code-visualizer" aria-labelledby="visualizer-heading">
+      <div class="container">
+        <h2 id="visualizer-heading">Code Visualizer</h2>
+        <div class="tabs" role="tablist">
+          <button class="tab-btn active" id="tab-class-diagram" data-tab="class-diagram" role="tab" aria-selected="true" aria-controls="class-diagram-panel">Class Diagram</button>
+          <button class="tab-btn" id="tab-flowchart" data-tab="flowchart" role="tab" aria-selected="false" aria-controls="flowchart-panel">Flowchart</button>
         </div>
-    </footer>
+        
+        <!-- Class Diagram Panel -->
+        <div id="class-diagram-panel" class="tab-panel active">
+          <div class="code-input-container">
+            <div class="code-options">
+              <button id="class-upload-btn" type="button" class="upload-button">
+                <i class="fas fa-upload" aria-hidden="true"></i> Upload Files
+              </button>
+              <input type="file" id="class-file-upload" accept=".java" multiple class="hidden-upload" aria-describedby="class-upload-instructions">
+              
+              <button id="class-generate-btn" type="button">Generate Diagram</button>
+            </div>
+            
+            <div id="class-paste-container">
+              <label for="java-code">Java code input</label>
+              <textarea id="java-code" placeholder="Paste your Java code here..." aria-describedby="class-paste-instructions"></textarea>
+              <p id="class-paste-instructions" class="sr-only">Paste your Java code in the textarea above to generate a class diagram</p>
+            </div>
+            
+            <div id="class-file-list" class="file-list" aria-live="polite"></div>
+          </div>
+          
+          <div class="result-container">
+            <div class="result-header">
+              <h3>Generated Class Diagram</h3>
+              <div class="download-options">
+                <button id="class-download-png-btn" type="button" disabled>Download PNG</button>
+              </div>
+            </div>
+            <div id="class-diagram-output" class="diagram-output" role="region" aria-label="Class diagram output" aria-live="polite"></div>
+          </div>
+        </div>
+        
+        <!-- Flowchart Panel -->
+        <div id="flowchart-panel" class="tab-panel" style="display: none;">
+          <div class="flowchart-editor-container">
+            <div class="flowchart-tools">
+              <h3>Flowchart Editor</h3>
+              <div class="node-toolbox">
+                <div class="toolbox-section">
+                  <h4>Add Nodes</h4>
+                  <div class="tool-buttons">
+                    <button id="add-start-node" class="tool-btn">
+                      <div class="color-box start"></div>
+                      <span>Start/End</span>
+                    </button>
+                    <button id="add-process-node" class="tool-btn">
+                      <div class="color-box process"></div>
+                      <span>Process</span>
+                    </button>
+                    <button id="add-decision-node" class="tool-btn">
+                      <div class="color-box decision"></div>
+                      <span>Decision</span>
+                    </button>
+                    <button id="add-io-node" class="tool-btn">
+                      <div class="color-box io"></div>
+                      <span>Input/Output</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <div class="toolbox-section">
+                  <h4>Actions</h4>
+                  <div class="tool-buttons">
+                    <button id="connect-nodes-btn" class="tool-btn">
+                      <i class="fas fa-link"></i>
+                      <span>Connect Nodes</span>
+                    </button>
+                    <!-- NEW: Add Text Button -->
+                    <button id="add-text-btn" class="tool-btn">
+                      <i class="fas fa-font"></i>
+                      <span>Add Text</span>
+                    </button>
 
-    <!-- Load JavaScript at the end for better performance -->
-    <script src="js/script.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+                    <button id="delete-selection-btn" class="tool-btn">
+                      <i class="fas fa-trash-alt"></i>
+                      <span>Delete</span>
+                    </button>
+                    <button id="clear-flowchart-btn" class="tool-btn">
+                      <i class="fas fa-broom"></i>
+                      <span>Clear All</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Node properties panel (initially hidden, shows when a node, connection, or text item is selected) -->
+              <div id="node-properties" class="node-properties" style="display: none;">
+                <h4>Properties</h4>
+                <div class="property-group">
+                  <label for="node-text">Text:</label>
+                  <input type="text" id="node-text" class="property-input">
+                </div>
+                <div class="property-group" id="connection-text-group" style="display: none;">
+                  <label for="connection-text">Connection Label:</label>
+                  <input type="text" id="connection-text" class="property-input">
+                </div>
+                <button id="apply-properties-btn" class="tool-btn">Apply</button>
+              </div>
+            </div>
+            
+            <div class="flowchart-canvas-container">
+              <div id="flowchart-canvas" class="flowchart-canvas">
+                <!-- Flowchart will be created here -->
+              </div>
+            </div>
+          </div>
+          
+          <div class="flowchart-actions">
+            <button id="flowchart-download-png-btn" type="button">Download PNG</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" aria-labelledby="about-heading">
+      <div class="container">
+        <h2 id="about-heading">About This Tool</h2>
+        <p>This tool helps Java developers visualize their code structure through class diagrams and create custom flowcharts. Generate class diagrams from Java code or design your own flowcharts from scratch.</p>
+        
+        <div class="features">
+          <div class="feature">
+            <i class="fas fa-project-diagram" aria-hidden="true"></i>
+            <h3>Class Diagrams</h3>
+            <p>Visualize classes, attributes, methods, and relationships across multiple files</p>
+          </div>
+          <div class="feature">
+            <i class="fas fa-code-branch" aria-hidden="true"></i>
+            <h3>Flowcharts</h3>
+            <p>Create custom flowcharts with our intuitive editor</p>
+          </div>
+          <div class="feature">
+            <i class="fas fa-download" aria-hidden="true"></i>
+            <h3>Export</h3>
+            <p>Download diagrams as PNG for documentation</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" aria-labelledby="contact-heading">
+      <div class="container">
+        <h2 id="contact-heading">Contact</h2>
+        <p>Have questions or suggestions? Reach out via GitHub issues or pull requests.</p>
+        <a href="https://github.com/Nobody277/Nobody277.github.io/issues" class="btn" target="_blank" rel="noopener noreferrer">Open an Issue <span class="sr-only">(opens in a new tab)</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2025 Java Development. Powered by <a href="https://pages.github.com/" target="_blank" rel="noopener noreferrer">GitHub Pages <span class="sr-only">(opens in a new tab)</span></a>.</p>
+    </div>
+  </footer>
+
+  <!-- Load JavaScript at the end for better performance -->
+  <script src="js/script.js" defer></script>
+  <script src="js/class-diagram.js" defer></script>
+  <script src="js/flowchart.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </body>
 </html>

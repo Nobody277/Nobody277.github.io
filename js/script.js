@@ -1,6 +1,12 @@
 // Load additional script files
 function loadScript(url) {
     return new Promise((resolve, reject) => {
+        // Check if the script is already loaded
+        if (document.querySelector(`script[src="${url}"]`)) {
+            resolve();
+            return;
+        }
+
         const script = document.createElement('script');
         script.src = url;
         script.onload = () => resolve();
@@ -20,58 +26,70 @@ Promise.all([
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Elements
+    // Elements for tabs
     const tabBtns = document.querySelectorAll('.tab-btn');
-    const generateBtn = document.getElementById('generate-btn');
-    const uploadBtn = document.getElementById('upload-btn');
-    const fileUpload = document.getElementById('file-upload');
-    const fileList = document.getElementById('file-list');
-    const downloadBtn = document.getElementById('download-png-btn');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+    
+    // Elements for Class Diagram tab
+    const classGenerateBtn = document.getElementById('class-generate-btn');
+    const classUploadBtn = document.getElementById('class-upload-btn');
+    const classFileUpload = document.getElementById('class-file-upload');
+    const classFileList = document.getElementById('class-file-list');
+    const classDownloadBtn = document.getElementById('class-download-png-btn');
     const javaCodeTextarea = document.getElementById('java-code');
-    const diagramOutput = document.getElementById('diagram-output');
+    const classDiagramOutput = document.getElementById('class-diagram-output');
     
     // Initialize diagram generators
     let classDiagramGenerator;
-    let flowchartGenerator;
     
     // Initialize after a short delay to ensure scripts are loaded
     setTimeout(() => {
         try {
             classDiagramGenerator = new ClassDiagramGenerator();
-            flowchartGenerator = new FlowchartGenerator();
-            console.log('Diagram generators initialized successfully');
+            console.log('Class diagram generator initialized successfully');
         } catch (error) {
-            console.error('Error initializing diagram generators:', error);
+            console.error('Error initializing class diagram generator:', error);
         }
     }, 500);
     
     // Initialize variables to track state
     let selectedFiles = [];
-    let currentTab = 'class-diagram';
     
     // Tab switching
     tabBtns.forEach(btn => {
         btn.addEventListener('click', function() {
-            // Remove active class from all tabs
-            tabBtns.forEach(tab => tab.classList.remove('active'));
-            tabBtns.forEach(tab => tab.setAttribute('aria-selected', 'false'));
+            // Remove active class from all tabs and panels
+            tabBtns.forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
+            });
+            
+            tabPanels.forEach(panel => {
+                panel.classList.remove('active');
+                panel.style.display = 'none';
+            });
             
             // Add active class to clicked tab
             this.classList.add('active');
             this.setAttribute('aria-selected', 'true');
             
-            // Store the current tab
-            currentTab = this.dataset.tab;
+            // Show corresponding panel
+            const tabId = this.getAttribute('data-tab');
+            const targetPanel = document.getElementById(`${tabId}-panel`);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+                targetPanel.style.display = 'block';
+            }
         });
     });
     
     // Trigger file upload when the upload button is clicked
-    uploadBtn.addEventListener('click', function() {
-        fileUpload.click();
+    classUploadBtn.addEventListener('click', function() {
+        classFileUpload.click();
     });
     
     // Handle file selection
-    fileUpload.addEventListener('change', function(e) {
+    classFileUpload.addEventListener('change', function(e) {
         const files = Array.from(e.target.files);
         
         if (files.length > 0) {
@@ -88,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update the file list display
     function updateFileList() {
-        fileList.innerHTML = '';
+        classFileList.innerHTML = '';
         
         selectedFiles.forEach((file, index) => {
             const fileItem = document.createElement('div');
@@ -108,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             fileItem.appendChild(fileName);
             fileItem.appendChild(removeBtn);
-            fileList.appendChild(fileItem);
+            classFileList.appendChild(fileItem);
         });
         
         // Enable/disable generate button based on whether files are selected or code is entered
@@ -130,55 +148,41 @@ document.addEventListener('DOMContentLoaded', function() {
     // Check if generate button should be enabled
     function checkGenerateButtonState() {
         if (selectedFiles.length > 0 || javaCodeTextarea.value.trim() !== '') {
-            generateBtn.disabled = false;
+            classGenerateBtn.disabled = false;
         } else {
-            generateBtn.disabled = true;
+            classGenerateBtn.disabled = true;
         }
     }
     
-    // Generate diagram
-    generateBtn.addEventListener('click', function() {
-        diagramOutput.innerHTML = '';
-        diagramOutput.classList.add('loading');
+    // Generate class diagram
+    classGenerateBtn.addEventListener('click', function() {
+        classDiagramOutput.innerHTML = '';
+        classDiagramOutput.classList.add('loading');
         
         // Get the input code or files
         const code = javaCodeTextarea.value.trim();
         
-        // Process based on current tab and input type
+        // Process based on input type
         setTimeout(() => {
-            diagramOutput.classList.remove('loading');
+            classDiagramOutput.classList.remove('loading');
             
             try {
-                if (currentTab === 'class-diagram') {
-                    if (classDiagramGenerator) {
-                        if (code) {
-                            classDiagramGenerator.parseCode(code);
-                        } else if (selectedFiles.length > 0) {
-                            classDiagramGenerator.parseFiles(selectedFiles);
-                        }
-                        classDiagramGenerator.generateDiagram();
-                        classDiagramGenerator.renderDiagram(diagramOutput);
-                    } else {
-                        throw new Error('Class diagram generator not initialized');
+                if (classDiagramGenerator) {
+                    if (code) {
+                        classDiagramGenerator.parseCode(code);
+                    } else if (selectedFiles.length > 0) {
+                        classDiagramGenerator.parseFiles(selectedFiles);
                     }
+                    classDiagramGenerator.generateDiagram();
+                    classDiagramGenerator.renderDiagram(classDiagramOutput);
                 } else {
-                    if (flowchartGenerator) {
-                        if (code) {
-                            flowchartGenerator.parseCode(code);
-                        } else if (selectedFiles.length > 0) {
-                            flowchartGenerator.parseFiles(selectedFiles);
-                        }
-                        flowchartGenerator.generateFlowchart();
-                        flowchartGenerator.renderFlowchart(diagramOutput);
-                    } else {
-                        throw new Error('Flowchart generator not initialized');
-                    }
+                    throw new Error('Class diagram generator not initialized');
                 }
                 
-                downloadBtn.disabled = false;
+                classDownloadBtn.disabled = false;
             } catch (error) {
-                console.error('Error generating diagram:', error);
-                diagramOutput.innerHTML = `
+                console.error('Error generating class diagram:', error);
+                classDiagramOutput.innerHTML = `
                     <div style="text-align: center; color: var(--danger-color);">
                         <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
                         <p>Error generating diagram: ${error.message}</p>
@@ -188,14 +192,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1500);
     });
     
-    // Download button
-    downloadBtn.addEventListener('click', function() {
-        if (currentTab === 'class-diagram' && classDiagramGenerator) {
+    // Download class diagram button
+    classDownloadBtn.addEventListener('click', function() {
+        if (classDiagramGenerator) {
             classDiagramGenerator.exportAsPNG()
                 .then(result => {
                     if (result.success) {
-                        // This would be replaced with actual download code
-                        alert('Class diagram download: ' + result.message);
+                        console.log('Class diagram download: ' + result.message);
                     } else {
                         alert('Error: ' + result.message);
                     }
@@ -203,20 +206,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 .catch(error => {
                     console.error('Export error:', error);
                     alert('Error exporting diagram: ' + error.message);
-                });
-        } else if (currentTab === 'flowchart' && flowchartGenerator) {
-            flowchartGenerator.exportAsPNG()
-                .then(result => {
-                    if (result.success) {
-                        // This would be replaced with actual download code
-                        alert('Flowchart download: ' + result.message);
-                    } else {
-                        alert('Error: ' + result.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Export error:', error);
-                    alert('Error exporting flowchart: ' + error.message);
                 });
         } else {
             alert('Diagram generator not initialized');
@@ -258,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const files = Array.from(dt.files).filter(file => file.name.endsWith('.java'));
         
         if (files.length > 0) {
-            fileUpload.files = dt.files;
+            classFileUpload.files = dt.files;
             selectedFiles = [...selectedFiles, ...files];
             updateFileList();
             javaCodeTextarea.value = '';
