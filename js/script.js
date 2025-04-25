@@ -43,14 +43,13 @@ document.addEventListener('DOMContentLoaded', function() {
     let classDiagramGenerator;
     
     // Initialize after a short delay to ensure scripts are loaded
-    setTimeout(() => {
-        try {
-            classDiagramGenerator = new ClassDiagramGenerator();
-            console.log('Class diagram generator initialized successfully');
-        } catch (error) {
-            console.error('Error initializing class diagram generator:', error);
-        }
-    }, 500);
+    try {
+        classDiagramGenerator = new ClassDiagramGenerator(); // Or new ClassDiagramGenerator({ darkMode: true }); if you want to be explicit
+        console.log('Class diagram generator initialized successfully');
+    } catch (error) {
+        console.error('Error initializing class diagram generator:', error);
+        // Handle initialization error appropriately (e.g., disable buttons)
+    }
     
     // Initialize variables to track state
     let selectedFiles = [];
@@ -159,17 +158,17 @@ document.addEventListener('DOMContentLoaded', function() {
         classDiagramOutput.innerHTML = ''; // Clear previous output
         classDiagramOutput.classList.add('loading'); // Show loading indicator
         classDownloadBtn.disabled = true; // Disable download initially
-    
+
         // Get the input code or files
         const code = javaCodeTextarea.value.trim();
         const filesToParse = selectedFiles; // Use the state variable
-    
+
         // No need for setTimeout, handle async directly
         try {
             if (!classDiagramGenerator) {
                 throw new Error('Class diagram generator not initialized');
             }
-    
+
             let parseResult;
             if (code) {
                 console.log("Parsing single code snippet...");
@@ -186,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         classes: classDiagramGenerator.classes,
                         relationships: classDiagramGenerator.relationships
                     };
-                     console.log("Single snippet parsed.");
+                    console.log("Single snippet parsed.");
                 } else {
                     throw new Error(result.message || "Failed to parse code snippet.");
                 }
@@ -198,30 +197,30 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 throw new Error("No code or files provided.");
             }
-    
+
             // Check if parsing was successful before generating/rendering
             if (parseResult && parseResult.success && parseResult.classes.length > 0) {
-                 console.log("Calling generateDiagram...");
-                 // generateDiagram uses the 'this.classes' set by parseCode/parseFiles
-                 const diagramData = classDiagramGenerator.generateDiagram();
-                 console.log("generateDiagram completed. Data:", diagramData);
-    
-                 console.log("Calling renderDiagram...");
-                 classDiagramGenerator.renderDiagram(classDiagramOutput, diagramData);
-                 console.log("Rendering process finished.");
-                 classDownloadBtn.disabled = false; // Enable download only on success
+                console.log("Calling generateDiagram...");
+                // generateDiagram uses the 'this.classes' set by parseCode/parseFiles
+                const diagramData = classDiagramGenerator.generateDiagram();
+                console.log("generateDiagram completed. Data:", diagramData);
+
+                console.log("Calling renderDiagram...");
+                classDiagramGenerator.renderDiagram(classDiagramOutput, diagramData);
+                console.log("Rendering process finished.");
+                classDownloadBtn.disabled = false; // Enable download only on success
             } else {
-                 // Handle cases where parsing succeeded but found no classes, or parsing failed
-                 const message = parseResult ? parseResult.message : "Parsing did not return a result.";
-                 console.warn("Diagram not generated:", message);
-                 classDiagramOutput.innerHTML = `
-                     <div style="text-align: center; color: #777; padding: 20px;">
-                         <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
-                         ${message} (No diagram generated)
-                     </div>`;
-                 classDownloadBtn.disabled = true;
+                // Handle cases where parsing succeeded but found no classes, or parsing failed
+                const message = parseResult ? parseResult.message : "Parsing did not return a result.";
+                console.warn("Diagram not generated:", message);
+                classDiagramOutput.innerHTML = `
+                    <div style="text-align: center; color: #777; padding: 20px;">
+                        <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                        ${message} (No diagram generated)
+                    </div>`;
+                classDownloadBtn.disabled = true;
             }
-    
+
         } catch (error) {
             console.error('Error generating class diagram:', error);
             classDiagramOutput.innerHTML = `
@@ -232,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             classDownloadBtn.disabled = true; // Ensure download is disabled on error
         } finally {
-             classDiagramOutput.classList.remove('loading'); // Hide loading indicator
+            classDiagramOutput.classList.remove('loading'); // Hide loading indicator
         }
     });
     
