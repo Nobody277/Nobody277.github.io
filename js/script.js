@@ -154,42 +154,86 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Generate class diagram
-    classGenerateBtn.addEventListener('click', function() {
-        classDiagramOutput.innerHTML = '';
-        classDiagramOutput.classList.add('loading');
-        
+    // Generate class diagram (Corrected with async/await)
+    classGenerateBtn.addEventListener('click', async function() { // Make the handler async
+        classDiagramOutput.innerHTML = ''; // Clear previous output
+        classDiagramOutput.classList.add('loading'); // Show loading indicator
+        classDownloadBtn.disabled = true; // Disable download initially
+    
         // Get the input code or files
         const code = javaCodeTextarea.value.trim();
-        
-        // Process based on input type
-        setTimeout(() => {
-            classDiagramOutput.classList.remove('loading');
-            
-            try {
-                if (classDiagramGenerator) {
-                    if (code) {
-                        classDiagramGenerator.parseCode(code);
-                    } else if (selectedFiles.length > 0) {
-                        classDiagramGenerator.parseFiles(selectedFiles);
-                    }
-                    classDiagramGenerator.generateDiagram();
-                    classDiagramGenerator.renderDiagram(classDiagramOutput);
-                } else {
-                    throw new Error('Class diagram generator not initialized');
-                }
-                
-                classDownloadBtn.disabled = false;
-            } catch (error) {
-                console.error('Error generating class diagram:', error);
-                classDiagramOutput.innerHTML = `
-                    <div style="text-align: center; color: var(--danger-color);">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                        <p>Error generating diagram: ${error.message}</p>
-                    </div>
-                `;
+        const filesToParse = selectedFiles; // Use the state variable
+    
+        // No need for setTimeout, handle async directly
+        try {
+            if (!classDiagramGenerator) {
+                throw new Error('Class diagram generator not initialized');
             }
-        }, 1500);
+    
+            let parseResult;
+            if (code) {
+                console.log("Parsing single code snippet...");
+                // Handle single code snippet parsing (parseCode is synchronous)
+                const result = classDiagramGenerator.parseCode(code);
+                if (result.success && result.classData) {
+                    // Manually set the classes array for single snippet case
+                    classDiagramGenerator.classes = [result.classData];
+                    classDiagramGenerator.findRelationships(); // Find relationships if needed
+                    // Create a structure similar to parseFiles result for consistency
+                    parseResult = {
+                        success: true,
+                        message: "Parsed code snippet successfully.",
+                        classes: classDiagramGenerator.classes,
+                        relationships: classDiagramGenerator.relationships
+                    };
+                     console.log("Single snippet parsed.");
+                } else {
+                    throw new Error(result.message || "Failed to parse code snippet.");
+                }
+            } else if (filesToParse.length > 0) {
+                console.log("Parsing uploaded files...");
+                // *** WAIT for parseFiles to complete ***
+                parseResult = await classDiagramGenerator.parseFiles(filesToParse);
+                console.log("parseFiles completed. Result:", parseResult);
+            } else {
+                throw new Error("No code or files provided.");
+            }
+    
+            // Check if parsing was successful before generating/rendering
+            if (parseResult && parseResult.success && parseResult.classes.length > 0) {
+                 console.log("Calling generateDiagram...");
+                 // generateDiagram uses the 'this.classes' set by parseCode/parseFiles
+                 const diagramData = classDiagramGenerator.generateDiagram();
+                 console.log("generateDiagram completed. Data:", diagramData);
+    
+                 console.log("Calling renderDiagram...");
+                 classDiagramGenerator.renderDiagram(classDiagramOutput, diagramData);
+                 console.log("Rendering process finished.");
+                 classDownloadBtn.disabled = false; // Enable download only on success
+            } else {
+                 // Handle cases where parsing succeeded but found no classes, or parsing failed
+                 const message = parseResult ? parseResult.message : "Parsing did not return a result.";
+                 console.warn("Diagram not generated:", message);
+                 classDiagramOutput.innerHTML = `
+                     <div style="text-align: center; color: #777; padding: 20px;">
+                         <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                         ${message} (No diagram generated)
+                     </div>`;
+                 classDownloadBtn.disabled = true;
+            }
+    
+        } catch (error) {
+            console.error('Error generating class diagram:', error);
+            classDiagramOutput.innerHTML = `
+                <div style="text-align: center; color: var(--danger-color);">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                    <p>Error generating diagram: ${error.message}</p>
+                </div>
+            `;
+            classDownloadBtn.disabled = true; // Ensure download is disabled on error
+        } finally {
+             classDiagramOutput.classList.remove('loading'); // Hide loading indicator
+        }
     });
     
     // Download class diagram button
